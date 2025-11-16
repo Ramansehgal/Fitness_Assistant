@@ -1,10 +1,15 @@
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant
 $ git init
 Initialized empty Git repository in C:/Users/raman/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant/.git/
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git remote add origin https://github.com/Ramansehgal/Fitness_Assistant.git
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git pull
 remote: Enumerating objects: 4, done.
@@ -25,6 +30,8 @@ If you wish to set tracking information for this branch you can do so with:
     git branch --set-upstream-to=origin/<branch> master
 
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git status
 On branch master
@@ -37,8 +44,8 @@ Untracked files:
 
 nothing added to commit but untracked files present (use "git add" to track)
 
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
-
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git commit -m "git_setupstatus"
 Author identity unknown
@@ -55,15 +62,17 @@ Omit --global to set the identity only in this repository.
 
 fatal: unable to auto-detect email address (got 'raman@Raman.(none)')
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git config --global user.email "ramansehgal174@gmail.com"
-
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git config --global user.name "Ramansehgal"
-
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git add .
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git status
 On branch master
@@ -74,12 +83,16 @@ Changes to be committed:
   (use "git rm --cached <file>..." to unstage)
         new file:   Notes.txt
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git commit -m "Inital Git Understanding"
 [master (root-commit) c9d1c0b] Inital Git Understanding
  1 file changed, 62 insertions(+)
  create mode 100644 Notes.txt
 
+
+------------------------------------------------------------------------------------------------------------------------------------
  raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git commit -m "git_setupstatus"
 Author identity unknown
@@ -96,12 +109,16 @@ Omit --global to set the identity only in this repository.
 
 fatal: unable to auto-detect email address (got 'raman@Raman.(none)')
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git config --global user.email "ramansehgal174@gmail.com"
-
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git config --global user.name "Ramansehgal"
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git status
 On branch master
@@ -128,12 +145,17 @@ Changes to be committed:
         new file:   Notes.txt
 
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git commit -m "Inital Git Understanding"
 [master (root-commit) c9d1c0b] Inital Git Understanding
  1 file changed, 62 insertions(+)
  create mode 100644 Notes.txt
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git status
 On branch master
@@ -155,6 +177,8 @@ Changes to be committed:
         modified:   Notes.txt
 
 
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git commit -m "Initial Git Understanding"
 [master 4a357cc] Initial Git Understanding
@@ -165,6 +189,9 @@ $ git status
 On branch master
 nothing to commit, working tree clean
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git push -u origin master
 info: please complete authentication in your browser...
@@ -183,16 +210,25 @@ To https://github.com/Ramansehgal/Fitness_Assistant.git
  * [new branch]      master -> master
 branch 'master' set up to track 'origin/master'.
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git push -u origin main
 error: src refspec main does not match any
 error: failed to push some refs to 'https://github.com/Ramansehgal/Fitness_Assistant.git'
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (master)
 $ git checkout main
 branch 'main' set up to track 'origin/main'.
 Switched to a new branch 'main'
 
+
+
+------------------------------------------------------------------------------------------------------------------------------------
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (main)
 $ git push -u origin main
 branch 'main' set up to track 'origin/main'.
