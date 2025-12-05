@@ -34,6 +34,7 @@ while True:
     if frame_idx % sample_every != 0:
         continue
 
+    color_change = frame_idx % 255
     print(f"\n=== Frame #{frame_idx} ===")
 
     # BGR -> RGB for mediapipe
@@ -43,7 +44,13 @@ while True:
     lmList = []
     if results.pose_landmarks:
         # draw skeleton
-        mpDraw.draw_landmarks(frame, results.pose_landmarks, mpPose.POSE_CONNECTIONS)
+        mpDraw.draw_landmarks(
+            frame,
+            results.pose_landmarks,
+            mpPose.POSE_CONNECTIONS,
+            landmark_drawing_spec=mpDraw.DrawingSpec(color=(0,0,255), thickness=2, circle_radius=3),
+            connection_drawing_spec=mpDraw.DrawingSpec(color=(color_change,255,0), thickness=2)
+        )
 
         h, w, c = frame.shape
         # print keypoints
@@ -54,7 +61,6 @@ while True:
             print(f"  kp {id:2d}: norm=({lm.x:.3f}, {lm.y:.3f}, {lm.z:.3f}), "
                   f"pix=({cx:4d}, {cy:4d}), visibility={lm.visibility:.3f}")
 
-        color_change = frame_idx % 255
         # example: mark a specific joint (id 14)
         if len(lmList) > 14:
             cv2.circle(frame, (lmList[14][1], lmList[14][2]), 8, (255-color_change, color_change, 255), cv2.FILLED)
