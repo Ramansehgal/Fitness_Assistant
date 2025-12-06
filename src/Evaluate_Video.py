@@ -1,5 +1,9 @@
-import os, cv2
+import os
+import cv2
+import math
+import numpy as np
 import mediapipe as mp
+from collections import defaultdict
 
 # ---- video setup ----
 video_path = "data/videos/bicep.mp4"
@@ -15,12 +19,6 @@ if not cap.isOpened():
     print("❌ Could not open video:", video_path)
     raise SystemExit
 
-
-import cv2
-import mediapipe as mp
-import numpy as np
-import math
-
 def compute_angle(a, b, c):
     """
     Angle at point b formed by vectors ba and bc, returns radians.
@@ -35,26 +33,63 @@ def compute_angle(a, b, c):
     cosang = np.clip(np.dot(ba, bc), -1.0, 1.0)
     return math.acos(cosang)
 
-def normalize_coords(coords):
+def normalize_coords(coords, pose_connections, eps=1e-6):
     """
     coords: (V,2) array of MediaPipe normalized coords (0..1, 0..1)
-    Returns root-relative, scale-normalized coords (V,2).
-    Root = mid-hip (L_HIP, R_HIP).
-    Scale = distance between shoulders.
+    pose_connections: list of (a,b) pairs defining skeleton graph
+                      e.g. mp_pose.POSE_CONNECTIONS
+    
+    Returns:
+        coords_norm: (V,2) root-relative, scale-normalized coords
+
+    Steps:
+      1. Find a "root" joint: mid-hip if possible, else mean of all joints
+      2. Compute coords relative to root 
+      3. Compute scale: average bone length of skeleton edges
+      4. Divide coords by scale
     """
-    root = (coords[L_HIP] + coords[R_HIP]) / 2.0
+
+    V = coords.shape[0]
+
+    # 1) Get root joint: mid-hip if exists ----
+    # MediaPipe BlazePose hip indices (if available)
+    L_HIP = 23
+    R_HIP = 24
+
+    if L_HIP < V and R_HIP < V:
+        root = (coords[L_HIP] + coords[R_HIP]) / 2.0
+    else:
+        # fallback: center of mass
+        root = coords.mean(axis=0)
+
+    # subtract root -> root-relative coordinates
     coords_rel = coords - root
 
-    # Scale by shoulder distance
-    shoulder_dist = np.linalg.norm(coords[L_SH] - coords[R_SH])
-    if shoulder_dist < 1e-6:
-        shoulder_dist = 1.0
-    coords_norm = coords_rel / shoulder_dist
+    # 2) compute scale factor based on bone lengths ----
+    # collect lengths for all edges
+    lengths = []
+    for (a, b) in pose_connections:
+        if a < V and b < V:
+            d = np.linalg.norm(coords[a] - coords[b])
+            if d > eps:
+                lengths.append(d)
+
+    if len(lengths) == 0:
+        scale = 1.0                     # fallback: unit scale
+    else:
+        scale = np.mean(lengths)
+
+    if scale < eps:
+        scale = 1.0                     # avoid division by zero
+
+    coords_norm = coords_rel / scale
     return coords_norm
 
-def build_angle_triplets(exclude_centers=None):
+def build_angle_triplets(mp_pose, exclude_centers=None):
+    
     if exclude_centers is None:
         exclude_centers = []
+
     # Undirected adjacency from POSE_CONNECTIONS
     adj = defaultdict(set)
     for a, c in mp_pose.POSE_CONNECTIONS:
@@ -92,24 +127,22 @@ def build_frame_features(coords_norm, confs, prev_coords_norm=None):
         v = np.zeros_like(coords_norm)
     else:
         v = coords_norm - prev_coords_norm  # raw diff (vx, vy)
-        # if you want direction only, you could do:
-        # v = np.sign(v)
-
-    # angles per joint (we sum angles assigned to that joint as "middle" joint)
-    angle_per_joint = np.zeros(V, dtype=np.float32)
-    for (a,b,c) in ANGLE_TRIPLETS:
-        ang = compute_angle(coords_norm[a], coords_norm[b], coords_norm[c])
-        angle_per_joint[b] += ang
-
-    features = []
+    
+    # joint features
+    joint_feats = []
     for j in range(V):
         x, y = coords_norm[j]
         conf = confs[j]
         vx, vy = v[j]
-        ang = angle_per_joint[j]
-        features.extend([x, y, conf, vx, vy, ang])
+        joint_feats.extend([x, y, conf, vx, vy])
 
-    return np.array(features, dtype=np.float32)  # shape (V*6,)
+    # angle features
+    angle_feats = []
+    for (a, b, c) in ANGLE_TRIPLETS:
+        ang = compute_angle(coords_norm[a], coords_norm[b], coords_norm[c])
+        angle_feats.append(ang)
+
+    return np.array(joint_feats + angle_feats, dtype=np.float32)
 
 def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, max_frames=None):
     """
@@ -139,6 +172,7 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
     # compute frame step to approximate sample_fps
     step = max(1, int(round(orig_fps / sample_fps)))
+    print("################################################################################################")
     print(f"[{video_path}] orig_fps={orig_fps:.2f}, sample_fps≈{orig_fps/step:.2f}, step={step}")
 
     frame_features = []
@@ -179,10 +213,13 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
             confs[i] = lm.visibility
 
         # normalize coords around hips + scale by shoulder distance
-        coords_norm = normalize_coords(coords)
+        coords_norm = normalize_coords(coords, mp_pose.POSE_CONNECTIONS)
 
         # build per-frame feature vector
         feat = build_frame_features(coords_norm, confs, prev_coords_norm)
+        print("--------------------------------------------------------------------------------")
+        print(feat)
+        print("--------------------------------------------------------------------------------")
         frame_features.append(feat)
 
         prev_coords_norm = coords_norm
@@ -203,9 +240,38 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
     return X_seqs, y_seqs
 
+
+mp_pose = mp.solutions.pose
 # Example: build angle triplets excluding face + hands as centers
 EXCLUDED_CENTERS = list(range(0, 11)) + list(range(15, 23))  # tweak if needed
-ANGLE_TRIPLETS = build_angle_triplets(exclude_centers=EXCLUDED_CENTERS)
+ANGLE_TRIPLETS = build_angle_triplets(mp_pose, exclude_centers=EXCLUDED_CENTERS)
+
+
+dataset_X = []
+dataset_y = []
+
+# Suppose you have video paths and labels:
+videos_and_labels = [
+    ("data/videos/bicep.mp4", 0),
+    ("data/videos/pushup.mp4", 1),
+    # ... etc ...
+]
+
+for video_path, label in videos_and_labels:
+    X_seqs, y_seqs = build_lstm_samples_from_video( video_path=video_path, label=label, sample_fps=10, seq_len=3)
+    dataset_X.extend(X_seqs)
+    dataset_y.extend(y_seqs)
+
+# convert to numpy
+X = np.array(dataset_X, dtype=np.float32)  # shape (N_samples, seq_len, D)
+y = np.array(dataset_y, dtype=np.int64)    # shape (N_samples,)
+
+print("X shape:", X.shape, "y shape:", y.shape)
+print("Features:")
+print(X)
+print("Labels:")
+print(y)
+
 
 # ---- mediapipe setup ----
 mpPose = mp.solutions.pose
@@ -227,7 +293,7 @@ while True:
         continue
 
     color_change = frame_idx % 255
-    print(f"\n=== Frame #{frame_idx} ===")
+    # print(f"\n=== Frame #{frame_idx} ===")
 
     # BGR -> RGB for mediapipe
     frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -250,8 +316,8 @@ while True:
             cx, cy = int(lm.x * w), int(lm.y * h)
             lmList.append([id, cx, cy])
 
-            print(f"  kp {id:2d}: norm=({lm.x:.3f}, {lm.y:.3f}, {lm.z:.3f}), "
-                  f"pix=({cx:4d}, {cy:4d}), visibility={lm.visibility:.3f}")
+            # print(f"  kp {id:2d}: norm=({lm.x:.3f}, {lm.y:.3f}, {lm.z:.3f}), "
+            #      f"pix=({cx:4d}, {cy:4d}), visibility={lm.visibility:.3f}")
 
         # example: mark a specific joint (id 14)
         if len(lmList) > 14:
