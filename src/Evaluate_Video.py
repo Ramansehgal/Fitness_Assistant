@@ -88,6 +88,30 @@ def normalize_coords(coords, pose_connections, eps=1e-6):
     coords_norm = coords_rel / scale
     return coords_norm
 
+def resample_to_length(feats, target_len):
+    """
+    feats: (T, D) per-frame features
+    target_len: desired number of frames
+
+    Returns: (target_len, D)
+    - If T > target_len: uniformly downsample.
+    - If T < target_len: uniformly sample with repetition
+      (some frames repeated, but still real frames).
+    """
+    T, D = feats.shape
+    if T == 0:
+        return np.zeros((target_len, D), dtype=np.float32)
+
+    if T == target_len:
+        return feats.copy()
+
+    # choose indices via linspace from 0..T-1
+    idxs = np.linspace(0, T - 1, target_len)
+    idxs = np.round(idxs).astype(int)
+    idxs = np.clip(idxs, 0, T - 1)
+
+    return feats[idxs]
+
 def build_angle_triplets(mp_pose, exclude_centers=None):
     
     if exclude_centers is None:
@@ -278,7 +302,7 @@ def build_sequences_from_triplets(
 
     return X_seqs, y_seqs
 
-def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, max_frames=None):
+def build_lstm_samples_from_video(video_path, sample_fps=10, seq_len=3, max_frames=None):
     """
     Build LSTM-ready samples from a single video.
 
@@ -365,26 +389,8 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
     # convert frame_features list to sequences of length seq_len
     frame_features = np.stack(frame_features, axis=0) if frame_features else np.empty((0,0))
-    X_seqs = []
-    y_seqs = []
 
-    # convert frame_features list to sequences of length seq_len
-    X_video, y_video = build_sequences_from_triplets(
-        frame_features=frame_features,
-        label=label,
-        frames_per_second=sample_fps,   # p
-        duration_s=None,                # infer from T // p, or pass actual duration
-        frames_per_sec_triplet=3,
-        max_triplets_per_second=20,
-        num_global_sequences=5,         # try 3–10 to start
-        min_gap=1,
-        debug=True                      # turn to False later
-    )
-
-    X_seqs.extend(X_video)
-    y_seqs.extend(y_video)
-
-    return X_seqs, y_seqs
+    return frame_features
 
 mp_pose = mp.solutions.pose
 # Example: build angle triplets excluding face + hands as centers
@@ -392,24 +398,68 @@ EXCLUDED_CENTERS = list(range(0, 11)) + list(range(15, 23))  # tweak if needed
 ANGLE_TRIPLETS = build_angle_triplets(mp_pose, exclude_centers=EXCLUDED_CENTERS)
 num_angle_features = len(ANGLE_TRIPLETS)
 
-dataset_X = []
-dataset_y = []
-
-# Suppose you have video paths and labels:
 videos_and_labels = [
     ("data/videos/bicep.mp4", 0),
     ("data/videos/pushup.mp4", 1),
-    # ... etc ...
+    # ...
 ]
 
-for video_path, label in videos_and_labels:
-    X_seqs, y_seqs = build_lstm_samples_from_video( video_path=video_path, label=label, sample_fps=10, seq_len=3)
-    dataset_X.extend(X_seqs)
-    dataset_y.extend(y_seqs)
+sample_fps = 10  # p
 
-# convert to numpy
-X = np.array(dataset_X, dtype=np.float32)  # shape (N_samples, seq_len, D)
-y = np.array(dataset_y, dtype=np.int64)    # shape (N_samples,)
+raw_video_feats = []   # list of (T_i, D) arrays
+raw_video_labels = []
+durations_s = []       # per-video durations in seconds (integer)
+
+for video_path, label in videos_and_labels:
+    feats = build_lstm_samples_from_video(video_path, sample_fps=sample_fps)
+    print(f"{video_path}: raw feats.shape = {feats.shape}")
+    if feats.size == 0:
+        continue
+
+    T_i = feats.shape[0]
+    duration_i = T_i // sample_fps   # integer number of "usable" seconds
+    if duration_i < 1:
+        print(f"Skipping {video_path}: too few frames.")
+        continue
+
+    raw_video_feats.append(feats)
+    raw_video_labels.append(label)
+    durations_s.append(duration_i)
+
+common_duration_s = min(durations_s)   # e.g. 23 seconds
+target_frames_per_video = common_duration_s * sample_fps
+print("common_duration_s:", common_duration_s)
+print("target_frames_per_video:", target_frames_per_video)
+
+dataset_X = []
+dataset_y = []
+
+for feats, label in zip(raw_video_feats, raw_video_labels):
+    # 1) resample per-video features to common length
+    feats_resampled = resample_to_length(feats, target_frames_per_video)  # (target_frames_per_video, D)
+    print(f"After resample: feats_resampled.shape = {feats_resampled.shape}")
+
+    # 2) build per-video sequences using your triplet-based logic
+    X_video, y_video = build_sequences_from_triplets(
+        frame_features=feats_resampled,
+        label=label,
+        frames_per_second=sample_fps,      # p
+        duration_s=common_duration_s,      # force same duration for all
+        frames_per_sec_triplet=3,
+        max_triplets_per_second=20,
+        num_global_sequences=5,            # 5 sequences per video
+        min_gap=1,
+        debug=True                         # keep True while debugging
+    )
+
+    dataset_X.extend(X_video)  # each (3 * common_duration_s, D)
+    dataset_y.extend(y_video)
+
+# 3) stack into final arrays
+X = np.array(dataset_X, dtype=np.float32)  # shape (N_total_seqs, 3*common_duration_s, D)
+y = np.array(dataset_y, dtype=np.int64)
+
+print("Final X shape:", X.shape, "y shape:", y.shape)
 
 seq_idx = 0
 X_seq = X[seq_idx]    # shape (3,191)
