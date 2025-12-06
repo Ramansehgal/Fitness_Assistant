@@ -392,6 +392,130 @@ def build_lstm_samples_from_video(video_path, sample_fps=10, seq_len=3, max_fram
 
     return frame_features
 
+def build_fixed_length_sequences(
+    frame_features,
+    label,
+    fps,
+    target_len=100,
+    num_sequences=5,
+    debug=True
+):
+    """
+    frame_features: (T, D) array of per-frame features for the full video
+    label: int label for this video
+    fps: sampling fps (e.g. 10)
+    target_len: desired sequence length (e.g. 100 frames)
+    num_sequences: how many different sequences to sample per video
+    Returns:
+        X_seqs: list of arrays (num_sequences, target_len, D)
+        y_seqs: list of labels
+    """
+
+    frame_features = np.asarray(frame_features, dtype=np.float32)
+    if frame_features.ndim != 2:
+        raise ValueError(f"frame_features must be 2D (T,D), got {frame_features.shape}")
+    T, D = frame_features.shape
+
+    if T == 0:
+        if debug:
+            print("[build_fixed_length_sequences] Empty frame_features, skipping.")
+        return [], []
+
+    duration_s = T // fps
+    if duration_s == 0:
+        if debug:
+            print("[build_fixed_length_sequences] Not enough frames for even 1 second, skipping.")
+        return [], []
+
+    # Only use full seconds
+    usable_T = duration_s * fps
+    frame_features = frame_features[:usable_T]
+    T = usable_T
+
+    if debug:
+        print(f"[build_fixed_length_sequences] T={T}, D={D}, fps={fps}, duration_s={duration_s}")
+
+    # If video longer than target_len seconds, you can clamp duration_s here
+    if duration_s > target_len:
+        if debug:
+            print(f"[WARN] duration_s={duration_s} > target_len={target_len}, "
+                  f"clamping to first {target_len} seconds.")
+        duration_s = target_len
+        usable_T = duration_s * fps
+        frame_features = frame_features[:usable_T]
+        T = usable_T
+
+    # 1) group frame indices per second
+    sec_to_frames = {sec: [] for sec in range(duration_s)}
+    for idx in range(T):
+        sec = idx // fps
+        if sec < duration_s:
+            sec_to_frames[sec].append(idx)
+
+    if debug:
+        for sec in range(duration_s):
+            print(f"  second {sec}: {len(sec_to_frames[sec])} frames -> idx {sec_to_frames[sec]}")
+
+    # 2) decide how many frames to pick from each second to reach target_len
+    if target_len < duration_s:
+        raise ValueError("target_len must be >= duration_s")
+
+    base = target_len // duration_s
+    extra = target_len % duration_s
+
+    per_sec_counts = []
+    for sec in range(duration_s):
+        count = base + (1 if sec < extra else 0)
+        per_sec_counts.append(count)
+
+    if debug:
+        print(f"  base={base}, extra={extra}, per_sec_counts={per_sec_counts}, sum={sum(per_sec_counts)}")
+
+    X_seqs = []
+    y_seqs = []
+
+    # 3) build num_sequences sequences
+    for s in range(num_sequences):
+        chosen_indices = []
+        for sec, count in enumerate(per_sec_counts):
+            frame_ids = sec_to_frames[sec]
+            L = len(frame_ids)
+
+            if L == 0:
+                # shouldn't happen if duration_s computed from T//fps
+                continue
+
+            if L >= count:
+                # we can sample without replacement for more variation
+                # for deterministic coverage, use linspace; for augmentation, use random.sample
+                # here we'll mix: random choice but spread via linspace if you want
+                # simplest: random.sample
+                chosen = random.sample(frame_ids, count)
+                chosen.sort()  # keep local chronological order
+            else:
+                # need to "stretch" frames: sample with replacement via linspace over indices
+                pos = np.linspace(0, L - 1, count)
+                idx_local = np.round(pos).astype(int)
+                chosen = [frame_ids[i] for i in idx_local]
+
+            chosen_indices.extend(chosen)
+
+        # ensure global chronological order
+        chosen_indices = sorted(chosen_indices)
+        seq = frame_features[chosen_indices]  # shape (target_len, D)
+
+        if debug and s == 0:
+            print(f"  example sequence indices (seq 0): {chosen_indices[:30]} ... total={len(chosen_indices)}")
+            print(f"  example sequence shape: {seq.shape}")
+
+        X_seqs.append(seq)
+        y_seqs.append(label)
+
+    if debug:
+        print(f"[build_fixed_length_sequences] generated {len(X_seqs)} sequences for this video.\n")
+
+    return X_seqs, y_seqs
+
 mp_pose = mp.solutions.pose
 # Example: build angle triplets excluding face + hands as centers
 EXCLUDED_CENTERS = list(range(0, 11)) + list(range(15, 23))  # tweak if needed
@@ -403,7 +527,9 @@ videos_and_labels = [
     ("data/videos/pushup.mp4", 1),
     # ...
 ]
-
+dataset_X = []
+dataset_y = []
+'''
 sample_fps = 10  # p
 
 raw_video_feats = []   # list of (T_i, D) arrays
@@ -431,9 +557,6 @@ target_frames_per_video = common_duration_s * sample_fps
 print("common_duration_s:", common_duration_s)
 print("target_frames_per_video:", target_frames_per_video)
 
-dataset_X = []
-dataset_y = []
-
 for feats, label in zip(raw_video_feats, raw_video_labels):
     # 1) resample per-video features to common length
     feats_resampled = resample_to_length(feats, target_frames_per_video)  # (target_frames_per_video, D)
@@ -453,6 +576,26 @@ for feats, label in zip(raw_video_feats, raw_video_labels):
     )
 
     dataset_X.extend(X_video)  # each (3 * common_duration_s, D)
+    dataset_y.extend(y_video)
+
+'''
+
+for video_path, label in videos_and_labels:
+    # previously: frame_features -> build_sequences_from_triplets(...)
+    # now:
+    frame_features = build_lstm_samples_from_video(video_path, sample_fps=10)
+    print(video_path, "raw frame_features:", frame_features.shape)
+
+    X_video, y_video = build_fixed_length_sequences(
+        frame_features=frame_features,
+        label=label,
+        fps=10,
+        target_len=100,
+        num_sequences=5,
+        debug=True
+    )
+
+    dataset_X.extend(X_video)
     dataset_y.extend(y_video)
 
 # 3) stack into final arrays
