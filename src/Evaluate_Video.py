@@ -1,13 +1,15 @@
 import os
 import cv2
 import math
+import random
 import numpy as np
 import pandas as pd
 import mediapipe as mp
 from collections import defaultdict
+from itertools import combinations
 
 # ---- video setup ----
-video_path = "data/videos/Multiple_Equipment_Exercises.mp4"
+video_path = "data/videos/bicep.mp4"
 cap = cv2.VideoCapture(video_path)
 
 print("CWD:", os.getcwd())
@@ -145,6 +147,137 @@ def build_frame_features(coords_norm, confs, prev_coords_norm=None):
 
     return np.array(joint_feats + angle_feats, dtype=np.float32)
 
+def build_sequences_from_triplets(
+    frame_features, label,
+    frames_per_second,
+    duration_s=None,            # if None, infer from T and frames_per_second
+    frames_per_sec_triplet=3,   # 3 frames per second in each sequence
+    max_triplets_per_second=20, # K: cap on triplets per second
+    num_global_sequences=5,     # M: how many sequences to sample per video
+    min_gap=1,                  # minimal gap between frame indices in a triplet
+    debug=True
+):
+    """
+    frame_features: list or np.array of shape (T, D) per-frame features
+    label: int class label for this video
+    frames_per_second: p (how many frames you kept per second after sampling)
+    duration_s: total duration in seconds (if None, inferred roughly as T // p)
+
+    Returns:
+        X_seqs: list of np.array, each shape (3*duration_s, D)
+        y_seqs: list of labels
+    """
+
+    # ensure numpy array
+    if frame_features.ndim != 2:
+        raise ValueError(f"frame_features must be 2D (T,D), got shape {frame_features.shape}")
+
+    T, D = frame_features.shape
+
+    if frames_per_second <= 0:
+        raise ValueError("frames_per_second must be > 0")
+
+    # infer duration if not provided
+    if duration_s is None:
+        duration_s = T // frames_per_second
+        if duration_s == 0:
+            if debug:
+                print("[build_sequences_from_triplets] Not enough frames to infer duration.")
+            return [], []
+
+    if debug:
+        print(f"[build_sequences_from_triplets] T={T}, D={D}, fps={frames_per_second}, "
+              f"duration_s={duration_s}, frames_per_sec_triplet={frames_per_sec_triplet}")
+
+    X_seqs = []
+    y_seqs = []
+
+    # 1) group frame indices by second (0..duration_s-1)
+    sec_to_frames = {sec: [] for sec in range(duration_s)}
+    for idx in range(T):
+        sec = idx // frames_per_second
+        if sec < duration_s:
+            sec_to_frames[sec].append(idx)
+
+    if debug:
+        for sec in range(duration_s):
+            print(f"  second {sec}: {len(sec_to_frames[sec])} frames -> indices {sec_to_frames[sec]}")
+
+    # check we have enough frames in every second
+    for sec in range(duration_s):
+        n_frames = len(sec_to_frames[sec])
+        if n_frames < frames_per_sec_triplet:
+            if debug:
+                print(f"[WARN] second {sec} has only {n_frames} frames; need {frames_per_sec_triplet}. Skipping video.")
+            return [], []
+
+    # 2) for each second, build candidate triplets and subsample them
+    sec_to_triplets = {}
+    for sec in range(duration_s):
+        frame_ids = sec_to_frames[sec]  # e.g. [20,21,...,29] if p=10
+        candidates = []
+        # all combinations of 'frames_per_sec_triplet' frames
+        for comb in combinations(frame_ids, frames_per_sec_triplet):
+            # comb is a tuple like (i, j, k)
+            # enforce minimal temporal gap if desired
+            ok = True
+            prev = comb[0]
+            for idx2 in comb[1:]:
+                if (idx2 - prev) < min_gap:
+                    ok = False
+                    break
+                prev = idx2
+            if ok:
+                candidates.append(comb)
+
+        if debug:
+            print(f"  second {sec}: total candidate triplets before cap = {len(candidates)}")
+
+        # cap candidates
+        if len(candidates) > max_triplets_per_second:
+            candidates = random.sample(candidates, max_triplets_per_second)
+            if debug:
+                print(f"  second {sec}: capped to {len(candidates)} triplets")
+
+        sec_to_triplets[sec] = candidates
+
+        if len(candidates) == 0:
+            if debug:
+                print(f"[WARN] second {sec} has no valid triplets after filtering. Skipping video.")
+            return [], []
+
+    # 3) build num_global_sequences sequences by picking 1 triplet per second
+    for s in range(num_global_sequences):
+        seq_frame_indices = []
+        valid = True
+        for sec in range(duration_s):
+            triplets = sec_to_triplets[sec]
+            if not triplets:
+                valid = False
+                if debug:
+                    print(f"[WARN] no triplets in second {sec} for sequence {s}")
+                break
+            chosen_triplet = random.choice(triplets)
+            seq_frame_indices.extend(chosen_triplet)
+
+        if not valid:
+            continue
+
+        # sort indices to ensure chronological ordering across full video
+        seq_frame_indices = sorted(seq_frame_indices)
+        seq = frame_features[seq_frame_indices]  # shape (3*duration_s, D)
+        X_seqs.append(seq)
+        y_seqs.append(label)
+
+        if debug and s == 0:
+            print(f"  example sequence {s}: frame indices = {seq_frame_indices}")
+            print(f"  example sequence shape: {seq.shape}")
+
+    if debug:
+        print(f"[build_sequences_from_triplets] generated {len(X_seqs)} sequences for this video.")
+
+    return X_seqs, y_seqs
+
 def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, max_frames=None):
     """
     Build LSTM-ready samples from a single video.
@@ -228,16 +361,28 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
     cap.release()
     cv2.destroyAllWindows()
 
+    print(len(frame_features))
+
     # convert frame_features list to sequences of length seq_len
     frame_features = np.stack(frame_features, axis=0) if frame_features else np.empty((0,0))
     X_seqs = []
     y_seqs = []
 
-    if frame_features.shape[0] >= seq_len:
-        for start in range(0, frame_features.shape[0] - seq_len + 1):
-            seq = frame_features[start:start+seq_len]  # shape (seq_len, D)
-            X_seqs.append(seq)
-            y_seqs.append(label)
+    # convert frame_features list to sequences of length seq_len
+    X_video, y_video = build_sequences_from_triplets(
+        frame_features=frame_features,
+        label=label,
+        frames_per_second=sample_fps,   # p
+        duration_s=None,                # infer from T // p, or pass actual duration
+        frames_per_sec_triplet=3,
+        max_triplets_per_second=20,
+        num_global_sequences=5,         # try 3–10 to start
+        min_gap=1,
+        debug=True                      # turn to False later
+    )
+
+    X_seqs.extend(X_video)
+    y_seqs.extend(y_video)
 
     return X_seqs, y_seqs
 
@@ -326,8 +471,8 @@ def show_top_sequences(X, y, feature_names, n=10):
         lbl = y[i]
         for t, frame in enumerate(seq):
             df = pd.DataFrame([frame], columns=feature_names)
-            df["seq"] = i
             df["frame"] = t
+            df["seq"] = i
             df["label"] = lbl
             rows.append(df)
     return pd.concat(rows, axis=0)
