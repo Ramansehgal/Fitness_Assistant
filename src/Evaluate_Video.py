@@ -2,11 +2,12 @@ import os
 import cv2
 import math
 import numpy as np
+import pandas as pd
 import mediapipe as mp
 from collections import defaultdict
 
 # ---- video setup ----
-video_path = "data/videos/bicep.mp4"
+video_path = "data/videos/Multiple_Equipment_Exercises.mp4"
 cap = cv2.VideoCapture(video_path)
 
 print("CWD:", os.getcwd())
@@ -172,8 +173,8 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
     # compute frame step to approximate sample_fps
     step = max(1, int(round(orig_fps / sample_fps)))
-    print("################################################################################################")
-    print(f"[{video_path}] orig_fps={orig_fps:.2f}, sample_fps≈{orig_fps/step:.2f}, step={step}")
+    # print("################################################################################################")
+    # print(f"[{video_path}] orig_fps={orig_fps:.2f}, sample_fps≈{orig_fps/step:.2f}, step={step}")
 
     frame_features = []
     frame_idx = 0
@@ -217,9 +218,9 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
         # build per-frame feature vector
         feat = build_frame_features(coords_norm, confs, prev_coords_norm)
-        print("--------------------------------------------------------------------------------")
-        print(feat)
-        print("--------------------------------------------------------------------------------")
+        # print("--------------------------------------------------------------------------------")
+        # print(feat)
+        # print("--------------------------------------------------------------------------------")
         frame_features.append(feat)
 
         prev_coords_norm = coords_norm
@@ -240,12 +241,11 @@ def build_lstm_samples_from_video(video_path, label, sample_fps=10, seq_len=3, m
 
     return X_seqs, y_seqs
 
-
 mp_pose = mp.solutions.pose
 # Example: build angle triplets excluding face + hands as centers
 EXCLUDED_CENTERS = list(range(0, 11)) + list(range(15, 23))  # tweak if needed
 ANGLE_TRIPLETS = build_angle_triplets(mp_pose, exclude_centers=EXCLUDED_CENTERS)
-
+num_angle_features = len(ANGLE_TRIPLETS)
 
 dataset_X = []
 dataset_y = []
@@ -266,12 +266,74 @@ for video_path, label in videos_and_labels:
 X = np.array(dataset_X, dtype=np.float32)  # shape (N_samples, seq_len, D)
 y = np.array(dataset_y, dtype=np.int64)    # shape (N_samples,)
 
+seq_idx = 0
+X_seq = X[seq_idx]    # shape (3,191)
+y_seq = y[seq_idx]
+
 print("X shape:", X.shape, "y shape:", y.shape)
 print("Features:")
-print(X)
+# print(X)
+print(X_seq)
+print(X_seq.shape[0])
 print("Labels:")
-print(y)
+# print(y)
 
+def build_feature_names(num_joints=33, num_angle_features=26):
+    names = []
+    for j in range(num_joints):
+        names.append(f"j{j:02d}_x")
+        names.append(f"j{j:02d}_y")
+        names.append(f"j{j:02d}_conf")
+        names.append(f"j{j:02d}_vx")
+        names.append(f"j{j:02d}_vy")
+
+    for a in range(num_angle_features):
+        names.append(f"angle_{a:02d}")
+    return names
+
+feature_names = build_feature_names(num_angle_features=num_angle_features)
+print("Number of features:", len(feature_names))
+print(feature_names[:10], "...")  # show first few names
+
+dfs = []
+for t in range(X_seq.shape[0]):
+    row = X_seq[t]  # shape (191,)
+    df = pd.DataFrame([row], columns=feature_names)
+    df["frame"] = t
+    df["label"] = y_seq
+    dfs.append(df)
+
+df_seq = pd.concat(dfs, axis=0)
+print(df_seq.head(10))
+
+def show_samples_per_label(X, y, feature_names, n=10):
+    samples = []
+    for seq, lbl in zip(X, y):
+        # take first frame only for simplicity
+        row = seq[0]
+        df = pd.DataFrame([row], columns=feature_names)
+        df["label"] = lbl
+        samples.append(df)
+    df_all = pd.concat(samples, axis=0)
+    print(df_all.groupby("label").head(n))
+
+show_samples_per_label(X, y, feature_names, n=3)
+
+def show_top_sequences(X, y, feature_names, n=10):
+    rows = []
+    for i in range(min(n, len(X))):
+        seq = X[i]
+        lbl = y[i]
+        for t, frame in enumerate(seq):
+            df = pd.DataFrame([frame], columns=feature_names)
+            df["seq"] = i
+            df["frame"] = t
+            df["label"] = lbl
+            rows.append(df)
+    return pd.concat(rows, axis=0)
+
+df_preview = show_top_sequences(X, y, feature_names, n=10)
+print(df_preview.head(20))
 
 # ---- mediapipe setup ----
 mpPose = mp.solutions.pose

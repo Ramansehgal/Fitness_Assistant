@@ -12,7 +12,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()  # expects OPENAI_API_KEY in .env
 
-PDF_PATH = "Abstract_Details.pdf"  # <-- change to your PDF filename
+PDF_PATH = "Notes.pdf"  # <-- change to your PDF filename
 
 # 1) Load PDF
 loader = PyPDFLoader(PDF_PATH)
