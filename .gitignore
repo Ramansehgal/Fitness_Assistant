@@ -1,5 +1,6 @@
-FitEnv
 .env
+FitEnv
+__pycache__/
 Abstract_Details.pdf
 AdmitCard.pdf
 friends.txt

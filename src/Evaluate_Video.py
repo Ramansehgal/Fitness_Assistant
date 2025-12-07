@@ -672,7 +672,6 @@ def show_top_sequences(X, y, feature_names, n=10):
 
 df_preview = show_top_sequences(X, y, feature_names, n=10)
 print(df_preview.head(20))
-
 # ---- mediapipe setup ----
 mpPose = mp.solutions.pose
 pose = mpPose.Pose()
@@ -730,3 +729,50 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+print("------------------------------------------------------------------------------------------")
+print("------------------------------------------------------------------------------------------")
+print("\t\t\t\t Main Controller")
+print("------------------------------------------------------------------------------------------")
+print("------------------------------------------------------------------------------------------")
+
+# main.py
+
+from feature_extractor import PoseFeatureExtractor
+from sequence_builder import FixedLengthSequenceBuilder
+from dataset_manager import VideoDataset
+
+# 1) Define your videos & labels
+videos_and_labels = [
+    ("data/videos/bicep.mp4", 0),
+    ("data/videos/pushup.mp4", 1),
+    # add more...
+]
+
+# 2) Create components
+feature_extractor = PoseFeatureExtractor(
+    sample_fps=10,
+    max_frames=None,
+    exclude_angle_centers=None  # uses default exclusion (face+hands)
+)
+
+sequence_builder = FixedLengthSequenceBuilder(
+    fps=10,
+    target_len=100,
+    num_sequences=5,
+    debug=True
+)
+
+# 3) Build dataset
+dataset = VideoDataset(feature_extractor, sequence_builder)
+dataset.build_from_videos(videos_and_labels)
+
+# 4) Inspect one sequence as DataFrame
+df_seq0 = dataset.sequence_to_dataframe(seq_idx=0)
+print(df_seq0.head(10))
+
+# 5) Show sample per label
+dataset.show_samples_per_label(n=3)
+
+# 6) Show top sequences (first few frames) across sequences
+df_preview = dataset.show_top_sequences(n=3)
