@@ -9,7 +9,7 @@ from collections import defaultdict
 from itertools import combinations
 
 # ---- video setup ----
-video_path = "data/videos/bicep.mp4"
+video_path = "data/videos/pushup2.mp4"
 cap = cv2.VideoCapture(video_path)
 
 print("CWD:", os.getcwd())
@@ -746,10 +746,12 @@ from dataset_manager import VideoDataset
 videos_and_labels = [
     ("data/videos/bicep.mp4", 0),
     ("data/videos/pushup.mp4", 1),
+    ("data/videos/pullup.mp4", 2),
+    ("data/videos/squat2.mp4", 3),
     # add more...
 ]
 
-label_names = ["bicep_curl", "pushup"]  # same order as labels
+label_names = ["bicep_curl", "pushup", "pullup", "squats"]  # same order as labels
 
 # 2) Create components
 feature_extractor = PoseFeatureExtractor(
@@ -846,7 +848,7 @@ print(f"Predicted probability: {pred_proba:.4f}")
 print(f"True label:            {y[0]} ({label_names[y[0]]})")
 
 # 9) Example: predict on a single sequence
-num_sample_test =  100
+num_sample_test =  25
 print("\n Prediction on Test Samples:")
 def test_samples(X_test, ground_truth_recv, num_sample_test=25, is_ground_truth_same=0):
     correct_classified = 0
@@ -865,10 +867,29 @@ def test_samples(X_test, ground_truth_recv, num_sample_test=25, is_ground_truth_
 
 test_samples(X_test, 0, num_sample_test=num_sample_test)
 
-X_vid, _ = dataset.build_sequences_for_video("data/videos/pushup2.mp4")
-print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
-test_samples(X_vid, 1, num_sample_test=num_sample_test, is_ground_truth_same=1)
+def separator():
+    print("-------------------------------------------------------------------------------------------------")
 
-X_vid, _ = dataset.build_sequences_for_video("data/videos/bicep_curl_4.mp4")
-print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
-test_samples(X_vid, 0, num_sample_test=num_sample_test, is_ground_truth_same=1)
+print("Testing on New Unseen Videos")
+test_video_list = [
+    ("data/videos/pushup2.mp4", 1),
+    ("data/videos/bicep_curl_2.mp4", 0),
+    ("data/videos/pullup2.mp4", 2),
+    ("data/videos/pushup3.mp4", 1),
+    ("data/videos/bicep_curl_3.mp4", 0),
+    ("data/videos/pushup4.mp4", 1),
+    ("data/videos/squat2.mp4", 3),
+    ("data/videos/bicep_curl_4.mp4", 0),
+    ("data/videos/pullup3.mp4", 2),
+    ("data/videos/bicep_curl_5.mp4", 0),
+    ("data/videos/pullup6.mp4", 2),
+    ("data/videos/pullup7.mp4", 2),
+    ("data/videos/squat3.mp4", 3),
+    ("data/videos/Multiple_Equipment_Exercises.mp4", 2)
+]
+for video_path, ground_truth in test_video_list:
+    separator()
+    X_vid, _ = dataset.build_sequences_for_video(video_path)
+    print(f"Video is getting tested on - {video_path}")
+    print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
+    test_samples(X_vid, ground_truth, num_sample_test=num_sample_test, is_ground_truth_same=1)
