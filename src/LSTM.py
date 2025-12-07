@@ -3,6 +3,8 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks, utils
+from sklearn.metrics import confusion_matrix, classification_report
+
 
 class PrintEveryNEpochs(callbacks.Callback):
     """
@@ -25,7 +27,7 @@ class LSTMTrainer:
     Wraps:
       - building an LSTM model for sequence classification
       - training with validation
-      - evaluating on test data
+      - evaluating on test data (with confusion matrix & report)
       - predicting a class for a single sequence
 
     Expects:
@@ -33,7 +35,14 @@ class LSTMTrainer:
       y shape: (N,) integer class labels
     """
 
-    def __init__(self, input_shape, num_classes, lstm_units=128, dropout_rate=0.3, learning_rate=1e-3):
+    def __init__(
+        self,
+        input_shape,
+        num_classes,
+        lstm_units=128,
+        dropout_rate=0.3,
+        learning_rate=1e-3
+    ):
         """
         input_shape: (T, D) - time steps & feature dimension
         num_classes: number of exercise classes
@@ -67,13 +76,24 @@ class LSTMTrainer:
         )
         print(model.summary())
         return model
-
+    
     # ---------- utilities for splitting data ----------
 
-    def _train_val_test_split(self, X, y, val_ratio=0.2, test_ratio=0.1, shuffle=True, random_state=42):
+    def _train_val_test_split(
+        self,
+        X,
+        y,
+        val_ratio=0.2,
+        test_ratio=0.1,
+        shuffle=True,
+        random_state=42
+    ):
         """
         Splits X, y into train/val/test.
         """
+        print("------------------------------------------------------------------------------------")
+        print("\t\t\t\t\t Train Test Val Split")
+        print("------------------------------------------------------------------------------------")
         N = X.shape[0]
         indices = np.arange(N)
         if shuffle:
@@ -95,11 +115,22 @@ class LSTMTrainer:
         X_train = X[test_size + val_size:]
         y_train = y[test_size + val_size:]
 
+        print(f"N={N}, Train Size={N - test_size - val_size}, Val Size={val_size}, Test Size={test_size}")
+        print("------------------------------------------------------------------------------------")
         return X_train, y_train, X_val, y_val, X_test, y_test
 
     # ---------- core training API ----------
 
-    def train(self, X_train, y_train, X_val=None, y_val=None, epochs=50, batch_size=32, print_every=10):
+    def train(
+        self,
+        X_train,
+        y_train,
+        X_val=None,
+        y_val=None,
+        epochs=50,
+        batch_size=32,
+        print_every=10
+    ):
         """
         Train model on given train (and optional val) data.
         y_* should be integer labels; we convert to one-hot inside.
@@ -125,14 +156,23 @@ class LSTMTrainer:
         )
         return history
 
-    def train_val_test(self,X,y, val_ratio=0.2, test_ratio=0.1, epochs=50, batch_size=32, print_every=10):
+    def train_val_test(
+        self,
+        X,
+        y,
+        val_ratio=0.2,
+        test_ratio=0.1,
+        epochs=50,
+        batch_size=32,
+        print_every=10
+    ):
         """
         Convenience function:
           - splits X,y into train/val/test
           - trains on train+val
           - evaluates on test
         Returns:
-          history, test_metrics_dict
+          history, test_metrics_dict, (X_test, y_test)
         """
         X_train, y_train, X_val, y_val, X_test, y_test = self._train_val_test_split(
             X, y,
@@ -158,11 +198,11 @@ class LSTMTrainer:
             "X_test_shape": X_test.shape,
         }
         print("Test metrics:", metrics)
-        return history, metrics
+        return history, metrics, (X_test, y_test)
 
     def evaluate(self, X_test, y_test):
         """
-        Evaluate on test set.
+        Evaluate on test set (loss + accuracy).
         """
         if X_test is None or len(X_test) == 0:
             print("No test data provided.")
@@ -172,6 +212,76 @@ class LSTMTrainer:
         loss, acc = self.model.evaluate(X_test, y_test_oh, verbose=0)
         print(f"Test loss={loss:.4f}, accuracy={acc:.4f}")
         return loss, acc
+
+    # ---------- helper: batch prediction ----------
+
+    def predict_batch(self, X):
+        """
+        X: (N, T, D)
+        Returns:
+          preds: (N,) predicted class indices
+          probs: (N, num_classes) predicted probabilities
+        """
+        probs = self.model.predict(X, verbose=0)
+        preds = np.argmax(probs, axis=1).astype(int)
+        return preds, probs
+
+    # ---------- confusion matrix + report + sample cases ----------
+
+    def evaluate_with_confusion_and_report(
+        self,
+        X_test,
+        y_test,
+        label_names=None,
+        samples_per_class=5
+    ):
+        """
+        Compute confusion matrix & classification report on test data.
+        Also print at least `samples_per_class` sample predictions per class.
+        """
+        if X_test is None or len(X_test) == 0:
+            print("No test data provided for confusion matrix.")
+            return None, None, None
+
+        preds, probs = self.predict_batch(X_test)
+
+        # Confusion matrix
+        cm = confusion_matrix(y_test, preds)
+        print("Confusion Matrix (rows=true, cols=pred):")
+        print(cm)
+
+        # Classification report
+        if label_names is not None and len(label_names) == cm.shape[0]:
+            print("\nClassification Report:")
+            print(classification_report(y_test, preds, target_names=label_names))
+        else:
+            print("\nClassification Report:")
+            print(classification_report(y_test, preds))
+
+        # Sample predictions per class
+        print("\nSample predictions per class:")
+        unique_classes = np.unique(y_test)
+        for cls in unique_classes:
+            cls_name = label_names[cls] if label_names and cls < len(label_names) else str(cls)
+            idxs = np.where(y_test == cls)[0]
+            if len(idxs) == 0:
+                continue
+
+            # choose up to samples_per_class indices from this class
+            chosen = idxs[:samples_per_class]
+
+            print(f"\nClass {cls} ({cls_name}) - showing {len(chosen)} samples:")
+            for i in chosen:
+                true_idx = int(y_test[i])
+                pred_idx = int(preds[i])
+                true_name = label_names[true_idx] if label_names and true_idx < len(label_names) else str(true_idx)
+                pred_name = label_names[pred_idx] if label_names and pred_idx < len(label_names) else str(pred_idx)
+                pred_proba = float(probs[i, pred_idx])
+                print(f"  sample idx={i:4d}, true={true_idx} ({true_name}), "
+                      f"pred={pred_idx} ({pred_name}), proba={pred_proba:.4f}")
+
+        # Return for plotting if needed
+        return cm, preds, probs
 
     # ---------- inference on single sequence ----------
 
@@ -184,12 +294,11 @@ class LSTMTrainer:
         """
         seq = np.array(seq, dtype=np.float32)
         if seq.ndim == 2:
-            # (T, D) -> (1, T, D)
             seq = np.expand_dims(seq, axis=0)
         elif seq.ndim != 3:
             raise ValueError(f"Expected seq with shape (T,D) or (1,T,D), got {seq.shape}")
 
-        probs = self.model.predict(seq, verbose=0)[0]  # (num_classes,)
+        probs = self.model.predict(seq, verbose=0)[0]
         pred_idx = int(np.argmax(probs))
         pred_proba = float(probs[pred_idx])
 

@@ -14,4 +14,5 @@ langgraph-sdk==0.2.0
 langsmith==0.4.13
 pandas
 pypdf==6.0.0
+scikit-learn
 tensorflow

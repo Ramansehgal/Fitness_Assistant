@@ -761,7 +761,7 @@ feature_extractor = PoseFeatureExtractor(
 sequence_builder = FixedLengthSequenceBuilder(
     fps=10,
     target_len=100,
-    num_sequences=5,
+    num_sequences=100,
     debug=False
 )
 
@@ -804,7 +804,8 @@ trainer = LSTMTrainer(
     learning_rate=1e-3
 )
 
-history, test_metrics = trainer.train_val_test(
+# 4) Train + get test split
+history, test_metrics,  (X_test, y_test) = trainer.train_val_test(
     X, y,
     val_ratio=0.25,
     test_ratio=0.15,
@@ -813,11 +814,28 @@ history, test_metrics = trainer.train_val_test(
     print_every=2
 )
 
-# 4) Plot training curves
+# 5) Plot training curves
 visualizer = TrainingVisualizer()
 visualizer.plot_history(history, show=True, save_path=None)
 
-# 5) Inference on a single sequence
+# 6) Confusion matrix + classification report + per-class samples
+cm, preds, probs = trainer.evaluate_with_confusion_and_report(
+    X_test, y_test,
+    label_names=label_names,
+    samples_per_class=5
+)
+
+# 7) Plot confusion matrix
+if cm is not None:
+    visualizer.plot_confusion_matrix(
+        cm,
+        label_names=label_names,
+        normalize=False,
+        show=True,
+        save_path=None
+    )
+
+# 8) Inference on a single sequence
 # Example: use first sequence from dataset
 seq = X[0]  # shape (100, D)
 pred_idx, pred_proba, pred_name = trainer.predict_sequence(seq, label_names=label_names)
@@ -826,3 +844,21 @@ print(f"Predicted class index: {pred_idx}")
 print(f"Predicted class name:  {pred_name}")
 print(f"Predicted probability: {pred_proba:.4f}")
 print(f"True label:            {y[0]} ({label_names[y[0]]})")
+
+# 9) Example: predict on a single sequence
+num_sample_test =  100
+correct_classified = 0
+print("\n Prediction on Test Samples:")
+for i in range(num_sample_test):
+    X_test_len = len(X_test)
+    random_idx = random.randint(0, X_test_len - 1)
+    seq = X_test[random_idx]
+    pred_class, pred_proba, pred_name = trainer.predict_sequence(seq, label_names=label_names)
+    ground_truth = y_test[random_idx]
+    if pred_class == ground_truth:
+        correct_classified += 1
+    print(f" [Test Number - {i:2}] Test ID:{random_idx:3} Predicted: {pred_class:2} ({pred_name:15}), Proba={pred_proba:.3f} Ground Truth: {y_test[random_idx]:2} ({label_names[y_test[random_idx]]:15})")
+
+print("\nTest Report:")
+print(f"  Correct classification: {correct_classified}")
+print(f"  Test Accuracy on Sample Data: {correct_classified/num_sample_test*100}%")
