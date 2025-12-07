@@ -749,6 +749,8 @@ videos_and_labels = [
     # add more...
 ]
 
+label_names = ["bicep_curl", "pushup"]  # same order as labels
+
 # 2) Create components
 feature_extractor = PoseFeatureExtractor(
     sample_fps=10,
@@ -760,12 +762,16 @@ sequence_builder = FixedLengthSequenceBuilder(
     fps=10,
     target_len=100,
     num_sequences=5,
-    debug=True
+    debug=False
 )
 
 # 3) Build dataset
 dataset = VideoDataset(feature_extractor, sequence_builder)
 dataset.build_from_videos(videos_and_labels)
+
+X = dataset.X       # shape (N, 100, D)
+y = dataset.y       # shape (N,)
+print("X shape:", X.shape, "y shape:", y.shape)
 
 # 4) Inspect one sequence as DataFrame
 df_seq0 = dataset.sequence_to_dataframe(seq_idx=0)
@@ -775,4 +781,48 @@ print(df_seq0.head(10))
 dataset.show_samples_per_label(n=3)
 
 # 6) Show top sequences (first few frames) across sequences
-df_preview = dataset.show_top_sequences(n=3)
+# df_preview = dataset.show_top_sequences(n=3)
+
+print("------------------------------------------------------------------------------------------")
+print("------------------------------------------------------------------------------------------")
+print("\t\t\t\t Train and Test on LSTM")
+print("------------------------------------------------------------------------------------------")
+print("------------------------------------------------------------------------------------------")
+
+from LSTM import LSTMTrainer
+from visualization import TrainingVisualizer
+
+# 3) Create and train LSTM model
+T, D = X.shape[1], X.shape[2]
+num_classes = len(set(y))
+
+trainer = LSTMTrainer(
+    input_shape=(T, D),
+    num_classes=num_classes,
+    lstm_units=128,
+    dropout_rate=0.3,
+    learning_rate=1e-3
+)
+
+history, test_metrics = trainer.train_val_test(
+    X, y,
+    val_ratio=0.25,
+    test_ratio=0.15,
+    epochs=30,
+    batch_size=16,
+    print_every=2
+)
+
+# 4) Plot training curves
+visualizer = TrainingVisualizer()
+visualizer.plot_history(history, show=True, save_path=None)
+
+# 5) Inference on a single sequence
+# Example: use first sequence from dataset
+seq = X[0]  # shape (100, D)
+pred_idx, pred_proba, pred_name = trainer.predict_sequence(seq, label_names=label_names)
+
+print(f"Predicted class index: {pred_idx}")
+print(f"Predicted class name:  {pred_name}")
+print(f"Predicted probability: {pred_proba:.4f}")
+print(f"True label:            {y[0]} ({label_names[y[0]]})")
