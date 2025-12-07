@@ -91,6 +91,60 @@ class VideoDataset:
         df_seq = pd.concat(dfs, axis=0)
         return df_seq
 
+    # dataset_manager.py (add inside VideoDataset class)
+    def add_labeled_video(self, video_path, label):
+        """
+        Process a single new labeled video:
+          - extract per-frame features
+          - build fixed-length sequences
+          - append to existing X, y
+        """
+        frame_features = self.feature_extractor.extract_frame_features(video_path)
+        print(f"[add_labeled_video] {video_path}: raw frame_features={frame_features.shape}")
+
+        X_video, y_video = self.sequence_builder.build_sequences(
+            frame_features=frame_features,
+            label=label
+        )
+
+        if not X_video:
+            print(f"[add_labeled_video] No sequences generated for {video_path}.")
+            return
+
+        X_video = np.array(X_video, dtype=np.float32)
+        y_video = np.array(y_video, dtype=np.int64)
+
+        if self.X is None or self.X.size == 0:
+            self.X = X_video
+            self.y = y_video
+        else:
+            self.X = np.concatenate([self.X, X_video], axis=0)
+            self.y = np.concatenate([self.y, y_video], axis=0)
+
+        print(f"[add_labeled_video] Updated dataset shapes: X={self.X.shape}, y={self.y.shape}")
+
+    def build_sequences_for_video(self, video_path, label=None):
+        """
+        Utility for single video:
+          - returns sequences X_video (list of (T,D))
+          - if label is not None, also returns y_video list
+        Useful for testing/prediction without touching main dataset.
+        """
+        frame_features = self.feature_extractor.extract_frame_features(video_path)
+        print(f"[build_sequences_for_video] {video_path}: raw frame_features={frame_features.shape}")
+
+        if label is None:
+            # use dummy label = 0, but ignore it in the caller
+            label_tmp = 0
+        else:
+            label_tmp = label
+
+        X_video, y_video = self.sequence_builder.build_sequences(
+            frame_features=frame_features,
+            label=label_tmp
+        )
+        return X_video, (y_video if label is not None else None)
+
     def show_samples_per_label(self, n=3):
         """
         Show first n sequences per label (first frame only) as DataFrame.

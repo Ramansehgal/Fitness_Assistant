@@ -847,18 +847,28 @@ print(f"True label:            {y[0]} ({label_names[y[0]]})")
 
 # 9) Example: predict on a single sequence
 num_sample_test =  100
-correct_classified = 0
 print("\n Prediction on Test Samples:")
-for i in range(num_sample_test):
-    X_test_len = len(X_test)
-    random_idx = random.randint(0, X_test_len - 1)
-    seq = X_test[random_idx]
-    pred_class, pred_proba, pred_name = trainer.predict_sequence(seq, label_names=label_names)
-    ground_truth = y_test[random_idx]
-    if pred_class == ground_truth:
-        correct_classified += 1
-    print(f" [Test Number - {i:2}] Test ID:{random_idx:3} Predicted: {pred_class:2} ({pred_name:15}), Proba={pred_proba:.3f} Ground Truth: {y_test[random_idx]:2} ({label_names[y_test[random_idx]]:15})")
+def test_samples(X_test, ground_truth_recv, num_sample_test=25, is_ground_truth_same=0):
+    correct_classified = 0
+    for i in range(num_sample_test):
+        X_test_len = len(X_test)
+        random_idx = random.randint(0, X_test_len - 1)
+        seq = X_test[random_idx]
+        pred_class, pred_proba, pred_name = trainer.predict_sequence(seq, label_names=label_names)
+        ground_truth = ground_truth_recv if (is_ground_truth_same == 1) else y_test[random_idx]
+        if pred_class == ground_truth:
+            correct_classified += 1
+        print(f" [Test Number - {i:2}] Test ID:{random_idx:3} Predicted: {pred_class:2} ({pred_name:15}), Proba={pred_proba:.3f} Ground Truth: {ground_truth:2} ({label_names[ground_truth]:15})")
+    print("\nTest Report:")
+    print(f"  Correct classification: {correct_classified}")
+    print(f"  Test Accuracy on Sample Data: {correct_classified/num_sample_test*100}%")
 
-print("\nTest Report:")
-print(f"  Correct classification: {correct_classified}")
-print(f"  Test Accuracy on Sample Data: {correct_classified/num_sample_test*100}%")
+test_samples(X_test, 0, num_sample_test=num_sample_test)
+
+X_vid, _ = dataset.build_sequences_for_video("data/videos/pushup2.mp4")
+print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
+test_samples(X_vid, 1, num_sample_test=num_sample_test, is_ground_truth_same=1)
+
+X_vid, _ = dataset.build_sequences_for_video("data/videos/bicep_curl_4.mp4")
+print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
+test_samples(X_vid, 0, num_sample_test=num_sample_test, is_ground_truth_same=1)
