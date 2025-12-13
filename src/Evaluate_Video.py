@@ -763,13 +763,13 @@ videos_and_labels = [
 
 test_video_list = [
     ("data/videos/pushup2.mp4", 1),
-    ("data/videos/bicep_curl_2.mp4", 0),
-    ("data/videos/pullup2.mp4", 2),
-    ("data/videos/squat3.mp4", 3),
-    ("data/videos/pullup6.mp4", 2),
+    # ("data/videos/bicep_curl_2.mp4", 0),
+    # ("data/videos/pullup2.mp4", 2),
+    # ("data/videos/squat3.mp4", 3),
+    # ("data/videos/pullup6.mp4", 2),
     ("data/videos/pushup_4.mp4", 1),
-    ("data/videos/bicep_curl_3.mp4", 0),
-    ("data/videos/pushup5.mp4", 1),
+    # ("data/videos/bicep_curl_3.mp4", 0),
+    # ("data/videos/pushup5.mp4", 1),
     ("data/videos/squat_6.mp4", 3),
     ("data/videos/bicep_curl_7.mp4", 0),
     ("data/videos/pullup3.mp4", 2),
@@ -930,17 +930,18 @@ print(f"Overall Model Accuracy                 : {overall_accuracy*100}%")
 from video_segmentation import segment_and_plot_timeline
 
 segment_video_list = [
-    ("data/videos/squat3.mp4", 3),
-    ("data/videos/pullup6.mp4", 2),
-    ("data/videos/pushup_4.mp4", 1),
-    ("data/videos/bicep_curl_3.mp4", 0),
-    ("data/videos/pushup5.mp4", 1),
-    ("data/videos/squat_6.mp4", 3),
+    # ("data/videos/squat3.mp4", 3),
+    # ("data/videos/pullup6.mp4", 2),
+    # ("data/videos/pushup_4.mp4", 1),
+    # ("data/videos/bicep_curl_3.mp4", 0),
+    # ("data/videos/pushup5.mp4", 1),
+    # ("data/videos/squat_6.mp4", 3),
     ("data/videos/bicep_curl_7.mp4", 0),
     ("data/videos/pullup3.mp4", 2),
     ("data/videos/bicep_curl_8.mp4", 0),
     ("data/videos/pullup7.mp4", 2),
-    ("data/videos/Multiple_Equipment_Exercises.mp4",0)
+    ("data/videos/Multiple_Equipment_Exercises.mp4",0),
+    ("data/videos/merged_video.mp4",0)
 ]
 
 print(trainer)
@@ -952,8 +953,8 @@ for video_path, label in segment_video_list:
         trainer=trainer,
         feature_extractor=feature_extractor,
         label_names=label_names,
-        window_size=trainer.input_shape[0],  # 100 frames, same as training
-        stride_frames=20,                    # slide ~20 frames each step
+        window_size=50,                      # 100 frames, same as training
+        stride_frames=10,                    # slide ~20 frames each step
         min_segment_windows=1                # ignore very tiny segments
     )
 

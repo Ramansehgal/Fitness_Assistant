@@ -3,7 +3,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 def resample_to_length(feats, target_len):
     """
     feats: (T, D) per-frame features
@@ -24,7 +23,6 @@ def resample_to_length(feats, target_len):
     idxs = np.round(idxs).astype(int)
     idxs = np.clip(idxs, 0, T - 1)
     return feats[idxs]
-
 
 def segment_video_exercises(
     video_path,
@@ -93,36 +91,56 @@ def segment_video_exercises(
             window = frame_features[start:T]
             window = resample_to_length(window, window_size)
 
-        # time center of this window (in seconds)
-        center_idx = (start + min(end, T)) / 2.0
-        center_time = center_idx / sample_fps
+        start_time = start / sample_fps
+        end_time = min(end, T) / sample_fps
 
-        pred_idx, pred_proba, pred_name = trainer.predict_sequence(window, label_names=label_names)
-        window_preds.append((center_time, pred_idx, pred_proba, pred_name))
+        pred_idx, pred_proba, pred_name = trainer.predict_sequence(
+            window, label_names=label_names
+        )
 
-    print(f"[DEBUG] Window predictions:")
-    for i, (t, c, p, name) in enumerate(window_preds):
-        print(f"  win {i:02d} @ {t:6.2f}s → class={c} ({name}), proba={p:.3f}")
+        window_preds.append({
+            "start_time": start_time,
+            "end_time": end_time,
+            "class_idx": pred_idx,
+            "class_name": pred_name,
+            "proba": pred_proba
+        })
+
+    print("[DEBUG] Window predictions:")
+    for i, w in enumerate(window_preds):
+        print(
+            f"  win {i:02d} | "
+            f"{w['start_time']:5.2f}s → {w['end_time']:5.2f}s | "
+            f"class={w['class_idx']} ({w['class_name']}), "
+            f"proba={w['proba']:.3f}"
+        )
+
 
     # 4) run-length encode segments by predicted class
     segments = []
     if not window_preds:
         return segments, window_preds
 
-    current_class = window_preds[0][1]
-    current_probs = [window_preds[0][2]]
+    current_class = window_preds[0]["class_idx"]
+    current_probs = [window_preds[0]["proba"]]
+    start_time = window_preds[0]["start_time"]
+    end_time = window_preds[0]["end_time"]
     seg_start_window = 0
 
     for i in range(1, len(window_preds)):
-        time_i, class_i, proba_i, _ = window_preds[i]
+        w_i = window_preds[i]
+        class_i = w_i["class_idx"]
+        proba_i = w_i["proba"]
         if class_i == current_class:
             current_probs.append(proba_i)
         else:
             # finalize previous segment
             seg_end_window = i - 1
             if (seg_end_window - seg_start_window + 1) >= min_segment_windows:
-                start_time = window_preds[seg_start_window][0]
-                end_time = window_preds[seg_end_window][0]
+                # start_time = window_preds[seg_start_window][0]
+                # end_time = window_preds[seg_end_window][0]
+                end_time = window_preds[seg_end_window]["end_time"]
+
                 mean_proba = float(np.mean(current_probs))
                 class_name = (
                     label_names[current_class]
@@ -143,12 +161,15 @@ def segment_video_exercises(
             current_class = class_i
             current_probs = [proba_i]
             seg_start_window = i
+            start_time = window_preds[seg_start_window]["start_time"]
 
     # finalize last segment
     seg_end_window = len(window_preds) - 1
     if (seg_end_window - seg_start_window + 1) >= min_segment_windows:
-        start_time = window_preds[seg_start_window][0]
-        end_time = window_preds[seg_end_window][0]
+        # start_time = window_preds[seg_start_window][0]
+        # end_time = window_preds[seg_end_window][0]
+        end_time = window_preds[seg_end_window]["end_time"]
+        
         mean_proba = float(np.mean(current_probs))
         class_name = (
             label_names[current_class]
@@ -175,7 +196,6 @@ def segment_video_exercises(
         )
 
     return segments, window_preds
-
 
 def segment_and_plot_timeline(
     video_path,
@@ -206,9 +226,11 @@ def segment_and_plot_timeline(
         print("[segment_and_plot_timeline] No window predictions; nothing to plot.")
         return segments, window_preds
 
-    times = np.array([t for (t, _, _, _) in window_preds])
-    classes = np.array([c for (_, c, _, _) in window_preds], dtype=int)
-    probs = np.array([p for (_, _, p, _) in window_preds])
+    times_start = np.array([w["start_time"] for w in window_preds])
+    times_end   = np.array([w["end_time"] for w in window_preds])
+    classes     = np.array([w["class_idx"] for w in window_preds], dtype=int)
+    probs       = np.array([w["proba"] for w in window_preds])
+    times = 0.5 * (times_start + times_end)
 
     plt.figure(figsize=(10, 4))
     if normalize_y:
