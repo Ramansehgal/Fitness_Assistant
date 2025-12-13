@@ -745,10 +745,38 @@ from dataset_manager import VideoDataset
 # 1) Define your videos & labels
 videos_and_labels = [
     ("data/videos/bicep.mp4", 0),
+    ("data/videos/bicep_curl_4.mp4", 0),
+    ("data/videos/bicep_curl_6.mp4", 0),
+    ("data/videos/bicep_Curl5.mp4", 0),
     ("data/videos/pushup.mp4", 1),
+    ("data/videos/pushup3.mp4", 1),
+    ("data/videos/pushup7.mp4", 1),
     ("data/videos/pullup.mp4", 2),
+    ("data/videos/pullup4.mp4", 2),
+    ("data/videos/pullup5.mp4", 2),
+    ("data/videos/squat.mp4", 3),
     ("data/videos/squat2.mp4", 3),
+    ("data/videos/squat_4.mp4", 3),
+    ("data/videos/squat5.mp4", 3),
     # add more...
+]
+
+test_video_list = [
+    ("data/videos/pushup2.mp4", 1),
+    ("data/videos/bicep_curl_2.mp4", 0),
+    ("data/videos/pullup2.mp4", 2),
+    ("data/videos/squat3.mp4", 3),
+    ("data/videos/pullup6.mp4", 2),
+    ("data/videos/pushup_4.mp4", 1),
+    ("data/videos/bicep_curl_3.mp4", 0),
+    ("data/videos/pushup5.mp4", 1),
+    ("data/videos/squat_6.mp4", 3),
+    ("data/videos/bicep_curl_7.mp4", 0),
+    ("data/videos/pullup3.mp4", 2),
+    ("data/videos/bicep_curl_8.mp4", 0),
+    ("data/videos/pullup7.mp4", 2),
+    ("data/videos/squat_7.mp4", 3),
+    ("data/videos/bicep_curl9.mp4", 0),
 ]
 
 label_names = ["bicep_curl", "pushup", "pullup", "squats"]  # same order as labels
@@ -849,6 +877,9 @@ print(f"True label:            {y[0]} ({label_names[y[0]]})")
 
 # 9) Example: predict on a single sequence
 num_sample_test =  25
+correct_class_pred = [0] * 4
+incorrect_class_pred = [0] * 4
+accuracy_per_class = [0.00] * 4
 print("\n Prediction on Test Samples:")
 def test_samples(X_test, ground_truth_recv, num_sample_test=25, is_ground_truth_same=0):
     correct_classified = 0
@@ -861,6 +892,11 @@ def test_samples(X_test, ground_truth_recv, num_sample_test=25, is_ground_truth_
         if pred_class == ground_truth:
             correct_classified += 1
         print(f" [Test Number - {i:2}] Test ID:{random_idx:3} Predicted: {pred_class:2} ({pred_name:15}), Proba={pred_proba:.3f} Ground Truth: {ground_truth:2} ({label_names[ground_truth]:15})")
+    incorrect_classified = num_sample_test - correct_classified
+    if is_ground_truth_same == 1:
+        correct_class_pred[ground_truth_recv] += correct_classified
+        incorrect_class_pred[ground_truth_recv] += incorrect_classified
+        accuracy_per_class[ground_truth_recv] = (accuracy_per_class[ground_truth_recv] * 100 + correct_classified)/(100 + num_sample_test)
     print("\nTest Report:")
     print(f"  Correct classification: {correct_classified}")
     print(f"  Test Accuracy on Sample Data: {correct_classified/num_sample_test*100}%")
@@ -871,25 +907,54 @@ def separator():
     print("-------------------------------------------------------------------------------------------------")
 
 print("Testing on New Unseen Videos")
-test_video_list = [
-    ("data/videos/pushup2.mp4", 1),
-    ("data/videos/bicep_curl_2.mp4", 0),
-    ("data/videos/pullup2.mp4", 2),
-    ("data/videos/pushup3.mp4", 1),
-    ("data/videos/bicep_curl_3.mp4", 0),
-    ("data/videos/pushup4.mp4", 1),
-    ("data/videos/squat2.mp4", 3),
-    ("data/videos/bicep_curl_4.mp4", 0),
-    ("data/videos/pullup3.mp4", 2),
-    ("data/videos/bicep_curl_5.mp4", 0),
-    ("data/videos/pullup6.mp4", 2),
-    ("data/videos/pullup7.mp4", 2),
-    ("data/videos/squat3.mp4", 3),
-    ("data/videos/Multiple_Equipment_Exercises.mp4", 2)
-]
+
 for video_path, ground_truth in test_video_list:
     separator()
     X_vid, _ = dataset.build_sequences_for_video(video_path)
     print(f"Video is getting tested on - {video_path}")
     print(len(X_vid), X_vid[0].shape)  # e.g. (num_sequences, 100, D)
     test_samples(X_vid, ground_truth, num_sample_test=num_sample_test, is_ground_truth_same=1)
+
+total_correct = sum(correct_class_pred)
+toal_test_cases = num_sample_test * len(test_video_list)
+overall_accuracy = total_correct/toal_test_cases
+
+print(f"Each classes correct predition count   : {correct_class_pred}")
+print(f"Each classes incorrect predition count : {correct_class_pred}")
+print(f"Each classes prediction accuracy       : {correct_class_pred}")
+print(f"Total Correct Prediction               : {total_correct}")
+print(f"Total Test Sequences                   : {toal_test_cases}")
+print(f"Overall Model Accuracy                 : {overall_accuracy*100}%")
+
+
+from video_segmentation import segment_and_plot_timeline
+
+segment_video_list = [
+    ("data/videos/squat3.mp4", 3),
+    ("data/videos/pullup6.mp4", 2),
+    ("data/videos/pushup_4.mp4", 1),
+    ("data/videos/bicep_curl_3.mp4", 0),
+    ("data/videos/pushup5.mp4", 1),
+    ("data/videos/squat_6.mp4", 3),
+    ("data/videos/bicep_curl_7.mp4", 0),
+    ("data/videos/pullup3.mp4", 2),
+    ("data/videos/bicep_curl_8.mp4", 0),
+    ("data/videos/pullup7.mp4", 2),
+    ("data/videos/Multiple_Equipment_Exercises.mp4",0)
+]
+
+print(trainer)
+
+for video_path, label in segment_video_list:
+
+    segments, window_preds = segment_and_plot_timeline(
+        video_path=video_path,
+        trainer=trainer,
+        feature_extractor=feature_extractor,
+        label_names=label_names,
+        window_size=trainer.input_shape[0],  # 100 frames, same as training
+        stride_frames=20,                    # slide ~20 frames each step
+        min_segment_windows=1                # ignore very tiny segments
+    )
+
+
