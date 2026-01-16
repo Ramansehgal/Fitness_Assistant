@@ -1,6 +1,7 @@
 import os
 import cv2
 import math
+import time
 import random
 import numpy as np
 import pandas as pd
@@ -8,8 +9,13 @@ import mediapipe as mp
 from collections import defaultdict
 from itertools import combinations
 
+
+import poseestimation as pm
+
+
+
 # ---- video setup ----
-video_path = "data/videos/pushup2.mp4"
+video_path = "data/videos/bicep_curl_4.mp4"
 cap = cv2.VideoCapture(video_path)
 
 print("CWD:", os.getcwd())
@@ -616,6 +622,258 @@ print(X_seq.shape[0])
 print("Labels:")
 # print(y)
 
+from rich.console import Console
+from rich.table import Table
+import pandas as pd
+
+def display_dataframe_rich(
+    df: pd.DataFrame,
+    max_rows: int = 10,
+    max_cols: int = None,
+    title: str = "DataFrame Preview"
+):
+    console = Console()
+
+    if max_rows:
+        df = df.head(max_rows)
+    if max_cols:
+        df = df.iloc[:, :max_cols]
+
+    table = Table(title=title, show_lines=True)
+
+    for col in df.columns:
+        table.add_column(str(col), justify="right", overflow="fold")
+
+    for _, row in df.iterrows():
+        table.add_row(*[f"{v:.4f}" if isinstance(v, float) else str(v) for v in row])
+
+    console.print(table)
+
+def display_dataframe_html(df, filename="df_preview.html"):
+    html = df.to_html(border=1)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"DataFrame rendered to {filename} (open in browser)")
+
+import pandas as pd
+import numpy as np
+
+def print_dataset_summary(df):
+    keypoint_cols = [c for c in df.columns if c.startswith("j")]
+    angle_cols = [c for c in df.columns if c.startswith("angle")]
+    meta_cols = [c for c in df.columns if c not in keypoint_cols + angle_cols]
+
+    print("\n\t\t Each Video Dataset Summary")
+    print("=" * 60)
+    print(f"Rows                : {df.shape[0]}")
+    print(f"Total Columns       : {df.shape[1]}")
+    print(f"Keypoint features   : {len(keypoint_cols)}")
+    print(f"Angle features      : {len(angle_cols)}")
+    print("=" * 60)
+
+
+
+def select_representative_columns(
+    df,
+    first_kpts=1,
+    last_kpts=1,
+    angle_tail=5
+):
+    # Keypoints grouped by joint index
+    def kp_group(j):
+        return [c for c in df.columns if c.startswith(f"j{j:02d}_")]
+
+    kp_indices = sorted({int(c[1:3]) for c in df.columns if c.startswith("j")})
+    
+    first_joints = kp_indices[:first_kpts]
+    last_joints = kp_indices[-last_kpts:]
+
+    cols = []
+    for j in first_joints:
+        cols.extend(kp_group(j))
+
+    for j in last_joints:
+        cols.extend(kp_group(j))
+
+    angle_cols = [c for c in df.columns if c.startswith("angle")]
+    meta_cols = [c for c in df.columns if not c.startswith(("j", "angle"))]
+
+    cols.extend(angle_cols[-angle_tail:])
+    cols.extend(meta_cols)
+
+    # Remove duplicates, preserve order
+    seen = set()
+    cols = [c for c in cols if not (c in seen or seen.add(c))]
+    return cols
+
+
+from rich.console import Console
+from rich.table import Table
+
+def display_dataframe_rich_smart(
+    df,
+    max_rows=5,
+    title="Dataset Preview (Smart View)"
+):
+    console = Console()
+
+    print_dataset_summary(df)
+
+    cols = select_representative_columns(df)
+    df_view = df[cols].head(max_rows)
+
+    table = Table(title=title, show_lines=True, header_style="bold cyan")
+
+    for c in df_view.columns:
+        style = "green" if c.startswith("j") else "magenta" if c.startswith("angle") else "yellow"
+        table.add_column(c, justify="right", style=style, overflow="fold")
+
+    for _, row in df_view.iterrows():
+        formatted_row = []
+        for col, v in zip(df_view.columns, row):
+            if col.startswith(("j", "angle")):
+                # Pose & angle features → float
+                formatted_row.append(f"{float(v):.3f}")
+            else:
+                # Meta columns → int
+                formatted_row.append(str(int(v)))
+        table.add_row(*formatted_row)
+
+    console.print(table)
+
+def display_dataframe_html_smart(
+    df,
+    filename="df_preview.html",
+    max_rows=10
+):
+    cols = select_representative_columns(df)
+    df_view = df[cols].head(max_rows)
+
+    def color_col(c):
+        if c.startswith("j"):
+            return "background-color:#e8f5e9"
+        elif c.startswith("angle"):
+            return "background-color:#e3f2fd"
+        else:
+            return "background-color:#fff3e0"
+
+    styles = [
+        dict(
+            selector="th",
+            props=[
+                ("position", "sticky"),
+                ("top", "0"),
+                ("background-color", "#263238"),
+                ("color", "white"),
+                ("font-size", "12px"),
+                ("padding", "6px"),
+            ],
+        ),
+        dict(
+            selector="td",
+            props=[
+                ("padding", "6px"),
+                ("font-size", "11px"),
+                ("white-space", "nowrap"),
+            ],
+        ),
+        dict(
+            selector="table",
+            props=[
+                ("border-collapse", "collapse"),
+                ("width", "100%"),
+            ],
+        ),
+    ]
+
+    styled = (
+        df_view.style
+        .set_table_styles(styles)
+        .applymap(lambda _: "border:1px solid #bbb")
+        .applymap(color_col)
+        .format(precision=4)
+    )
+
+    html = f"""
+    <html>
+    <head>
+    <style>
+    body {{ font-family: Arial; }}
+    .container {{
+        overflow-x: auto;
+        max-width: 100%;
+    }}
+    </style>
+    </head>
+    <body>
+    <h3>Dataset Preview (Smart View)</h3>
+    <div class="container">
+    {styled.to_html()}
+    </div>
+    </body>
+    </html>
+    """
+
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f"HTML preview written to: {filename}")
+
+def pretty_print_dataframe(
+    df: pd.DataFrame,
+    max_rows: int = 10,
+    max_cols: int = 15,
+    float_precision: int = 4,
+    transpose: bool = False,
+    title: str = None
+):
+    """
+    Print a pandas DataFrame in a clean, readable tabular format.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame
+    max_rows : int
+        Max number of rows to display
+    max_cols : int
+        Max number of columns to display
+    float_precision : int
+        Decimal precision for float values
+    transpose : bool
+        If True, prints DataFrame transposed (useful for many features)
+    title : str
+        Optional title for clarity
+    """
+
+    if title:
+        print(f"\n{'=' * len(title)}")
+        print(title)
+        print(f"{'=' * len(title)}")
+
+    pd.set_option("display.max_rows", max_rows)
+    pd.set_option("display.max_columns", max_cols)
+    pd.set_option("display.width", 120)
+    pd.set_option("display.float_format", lambda x: f"{x:.{float_precision}f}")
+
+    if transpose:
+        df = df.T
+
+    display_df = df.copy()
+
+    # Reset index for clean display
+    if display_df.index.name or isinstance(display_df.index, pd.MultiIndex):
+        display_df = display_df.reset_index()
+
+    print(display_df.to_string(index=False))
+
+    # Restore defaults (important for notebooks)
+    pd.reset_option("display.max_rows")
+    pd.reset_option("display.max_columns")
+    pd.reset_option("display.width")
+    pd.reset_option("display.float_format")
+
+
 def build_feature_names(num_joints=33, num_angle_features=26):
     names = []
     for j in range(num_joints):
@@ -643,6 +901,13 @@ for t in range(X_seq.shape[0]):
 
 df_seq = pd.concat(dfs, axis=0)
 print(df_seq.head(10))
+print("Line:681")
+display_dataframe_rich(df_seq, max_rows=5, max_cols=10, title="Frame Features")
+# display_dataframe_html(df_seq, filename="Frame_Features.html")
+display_dataframe_rich_smart(df_seq, max_rows=5, title="Frame Features")
+# display_dataframe_html_smart(df_seq, filename="Frame_Features.html")
+# pretty_print_dataframe(df_seq.head(1),transpose=True,title="Frame Feature Breakdown")
+print("Line:683")
 
 def show_samples_per_label(X, y, feature_names, n=10):
     samples = []
@@ -654,6 +919,13 @@ def show_samples_per_label(X, y, feature_names, n=10):
         samples.append(df)
     df_all = pd.concat(samples, axis=0)
     print(df_all.groupby("label").head(n))
+    print("Line:695")
+    display_dataframe_rich(df_all, max_rows=5, max_cols=10, title="Each Label Frame Sequences")
+    # display_dataframe_html(df_seq, filename="Per_Class_Sequences.html")
+    display_dataframe_rich_smart(df_all, max_rows=5, title="Per Class Sample Frame Dataset")
+    # display_dataframe_html_smart(df_seq, filename="Frame_Features.html")
+    # pretty_print_dataframe(df_seq, title="Per_Class_Sequences")
+    print("Line:697")
 
 show_samples_per_label(X, y, feature_names, n=3)
 
@@ -672,6 +944,14 @@ def show_top_sequences(X, y, feature_names, n=10):
 
 df_preview = show_top_sequences(X, y, feature_names, n=10)
 print(df_preview.head(20))
+print("Line:716")
+display_dataframe_rich(df_preview, max_rows=5, max_cols=10, title="10 Sample Frame Sequences")
+# display_dataframe_html(df_seq, filename="Sample_Sequences.html")
+display_dataframe_rich_smart(df_seq, max_rows=5, title="Frame Features")
+# display_dataframe_html_smart(df_seq, filename="Frame_Features.html")
+# pretty_print_dataframe(df_seq, title="Sample_Sequences")
+print("Line:718")
+
 # ---- mediapipe setup ----
 mpPose = mp.solutions.pose
 pose = mpPose.Pose()
@@ -763,13 +1043,13 @@ videos_and_labels = [
 
 test_video_list = [
     ("data/videos/pushup2.mp4", 1),
-    # ("data/videos/bicep_curl_2.mp4", 0),
-    # ("data/videos/pullup2.mp4", 2),
-    # ("data/videos/squat3.mp4", 3),
-    # ("data/videos/pullup6.mp4", 2),
+    ("data/videos/bicep_curl_2.mp4", 0),
+    ("data/videos/pullup2.mp4", 2),
+    ("data/videos/squat3.mp4", 3),
+    ("data/videos/pullup6.mp4", 2),
     ("data/videos/pushup_4.mp4", 1),
-    # ("data/videos/bicep_curl_3.mp4", 0),
-    # ("data/videos/pushup5.mp4", 1),
+    ("data/videos/bicep_curl_3.mp4", 0),
+    ("data/videos/pushup5.mp4", 1),
     ("data/videos/squat_6.mp4", 3),
     ("data/videos/bicep_curl_7.mp4", 0),
     ("data/videos/pullup3.mp4", 2),
@@ -795,20 +1075,60 @@ sequence_builder = FixedLengthSequenceBuilder(
     debug=False
 )
 
+def dataset_info(arr1, arr2, msg=""):
+    # ---------------------------
+    # Step 3: Append arrays as new columns
+    # ---------------------------
+    # combined = np.concatenate((arr1, arr2), axis=0)
+
+    # Create DataFrame
+    df = pd.DataFrame(arr1)
+    df['label'] = arr2
+
+    print("DataFrame after appending arrays:\n", df.head(), "\n")
+
+    # ---------------------------
+    # Step 4: Identify columns where second array has unique values
+    # ---------------------------
+    unique_values = df['label'].unique()
+    print("Unique values in num_col2:", unique_values, "\n")
+
+    # ---------------------------
+    # Step 5: Filter top 5 rows for each unique value
+    # (Sorting by 'score' in descending order)
+    # ---------------------------
+    top5_each = (
+        df.sort_values(by='score', ascending=False)
+        .groupby('num_col2')
+        .head(4)
+        .reset_index(drop=True)
+    )
+
+    display_dataframe_rich_smart(top5_each, max_rows=10, title=msg)
+    display_dataframe_rich_smart(top5_each, max_rows=10, title="Per Class Sample Frame Dataset")
+    print("Top 5 rows for each unique value in num_col2:\n", top5_each)
+
+
 # 3) Build dataset
 dataset = VideoDataset(feature_extractor, sequence_builder)
 dataset.build_from_videos(videos_and_labels)
 
 X = dataset.X       # shape (N, 100, D)
 y = dataset.y       # shape (N,)
-print("X shape:", X.shape, "y shape:", y.shape)
+print("Training Dataset Shape")
+print("=" * 60)
+print("X shape:", X.shape, "\ny shape:", y.shape)
+print("=" * 60)
 
 # 4) Inspect one sequence as DataFrame
 df_seq0 = dataset.sequence_to_dataframe(seq_idx=0)
 print(df_seq0.head(10))
+display_dataframe_rich_smart(df_seq0, title="Sample Sequence From DataFrame")
 
 # 5) Show sample per label
 dataset.show_samples_per_label(n=3)
+
+# dataset_info(X,y,msg="Training Dataset")
 
 # 6) Show top sequences (first few frames) across sequences
 # df_preview = dataset.show_top_sequences(n=3)
@@ -907,6 +1227,10 @@ def separator():
     print("-------------------------------------------------------------------------------------------------")
 
 print("Testing on New Unseen Videos")
+print("=" * 60)
+print(f"Number of Test Videos               : {len(test_video_list)}")
+print(f"Number of Sample Sequence Per Video : {num_sample_test}")
+print("=" * 60)
 
 for video_path, ground_truth in test_video_list:
     separator()
@@ -959,3 +1283,184 @@ for video_path, label in segment_video_list:
     )
 
 
+#---------------------------------------------------------------------------------------------------------------#
+#                                       Display Text and Rep Count on the video
+#---------------------------------------------------------------------------------------------------------------#
+import poseestimation as pm
+'''
+cap = cv2.VideoCapture("data/videos/bicep.mp4")
+detector = pm.poseDetector()
+dir = 0
+count=0
+ptime = 0
+frame_id = 0
+def compute_angle2(a, b, c):
+    """
+    Angle at point b formed by vectors ba and bc, returns radians.
+    a, b, c are np.array([x,y]).
+    """
+    ba = a - b
+    bc = c - b
+    na = np.linalg.norm(ba) + 1e-8
+    nb = np.linalg.norm(bc) + 1e-8
+    ba /= na
+    bc /= nb
+    cosang = np.clip(np.dot(ba, bc), -1.0, 1.0)
+    return math.acos(cosang)
+
+while True:
+    ret, frame = cap.read()
+    print(f"\n=== Frame #{frame_id} ===")
+    frame_id = frame_id + 1
+    if ret:
+        frame = detector.findPose(frame)
+        lmList = detector.findPosition(frame)
+        #print(lmList)
+        if len(lmList)!=0:
+            angle=detector.findAngle(frame, 12, 14, 16, draw=True)
+            _ , cos_a1, cos_a2 = lmList[12]
+            _ , cos_b1, cos_b2 = lmList[14]
+            _ , cos_c1, cos_c2 = lmList[16]
+            cos_a = np.array([cos_a1, cos_a2], dtype=np.float32)
+            cos_b = np.array([cos_b1, cos_b2], dtype=np.float32)
+            cos_c = np.array([cos_c1, cos_c2], dtype=np.float32)
+            cos_angle = compute_angle2(cos_a, cos_b, cos_c) * 180 / 3.14
+            print(f"Cos Angle Between Joints a:{cos_a} b:{cos_b} c:{cos_c} = {cos_angle}")
+            #print(angle)
+            per=np.interp(angle, (190,300), (0,100))
+            bar = np.interp(angle, (190, 300), (100, 650))
+            color=(255, 100, 100)
+            if per == 100:
+                color=(100, 255, 100)
+                if dir==0:
+                    count+=0.5
+                    dir=1
+            if per == 0:
+                color=(100, 100, 255)
+                if dir == 1:
+                    count+=0.5
+                    dir=0
+
+            # Displaying Curl Count
+            pos = [30, 450]
+            ox, oy = pos[0], pos[1]
+            offset = 10
+            text = str(int(count))
+
+            (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 11, 11)
+            x1, y1, x2, y2 = ox - offset, oy + offset, ox + w + offset, oy - h - offset
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), cv2.FILLED)
+            cv2.putText(frame, text, (ox, oy), cv2.FONT_HERSHEY_PLAIN, 10, (255, 255, 255), 6)
+
+            #Displating the Bar Count
+
+            cv2.rectangle(frame, (1100, 100), (1175, 650),color, 3)
+            cv2.rectangle(frame, (1100, int(bar)), (1175, 650), color, cv2.FILLED)
+            cv2.putText(frame, f'{int(per)}%', (1100, 75), cv2.FONT_HERSHEY_PLAIN, 4, color, 4)
+
+
+            # Displaying the FPS
+            ctime = time.time()
+            fps = 1/(ctime - ptime)
+            ptime = ctime
+            pos = [30, 60]
+            ox, oy = pos[0], pos[1]
+            offset=10
+            text = "FPS: " + str(int(fps))
+
+            (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 3,3)
+            x1,y1, x2, y2 = ox-offset, oy+offset, ox+w+offset, oy-h-offset
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), cv2.FILLED)
+            cv2.putText(frame, text, (ox, oy), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+
+            print(f"FPS:{fps} BAR:{bar} Percentage Complete:{per} Rep Count:{count}")
+
+        cv2.imshow("Video", frame)
+        if cv2.waitKey(1) & 0xFF==ord('1'):
+            break
+    else:
+        break
+
+
+cap = cv2.VideoCapture("data/videos/pushup.mp4")
+detector = pm.poseDetector()
+dir = 0
+count=0
+ptime = 0
+while True:
+    ret, frame = cap.read()
+    if ret:
+        frame = detector.findPose(frame)
+        lmList = detector.findPosition(frame, draw=False)
+        #print(lmList)
+        if len(lmList)!=0:
+            angle=detector.findAngle(frame, 11, 13, 15, draw=True)
+            #print(angle)
+            per=np.interp(angle, (200,280), (0,100))
+            bar = np.interp(angle, (200, 280), (650, 100))
+            color=(255, 100, 100)
+            if per == 100:
+                color=(100, 255, 100)
+                if dir==0:
+                    count+=0.5
+                    dir=1
+            if per == 0:
+                color=(100, 100, 255)
+                if dir == 1:
+                    count+=0.5
+                    dir=0
+
+            # Displaying Curl Count
+            pos = [30, 450]
+            ox, oy = pos[0], pos[1]
+            offset = 10
+            text = str(int(count))
+
+            (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 11, 11)
+            x1, y1, x2, y2 = ox - offset, oy + offset, ox + w + offset, oy - h - offset
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), cv2.FILLED)
+            cv2.putText(frame, text, (ox, oy), cv2.FONT_HERSHEY_PLAIN, 10, (255, 255, 255), 6)
+
+            #Displating the Bar Count
+
+            cv2.rectangle(frame, (1600, 100), (1675, 650),color, 3)
+            cv2.rectangle(frame, (1600, int(bar)), (1675, 650), color, cv2.FILLED)
+            cv2.putText(frame, f'{int(per)}%', (1600, 75), cv2.FONT_HERSHEY_PLAIN, 4, color, 4)
+
+
+            # Displaying the FPS
+            ctime = time.time()
+            fps = 1/(ctime - ptime)
+            ptime = ctime
+            pos = [30, 60]
+            ox, oy = pos[0], pos[1]
+            offset=10
+            text = "FPS: " + str(int(fps))
+
+            (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 3,3)
+            x1,y1, x2, y2 = ox-offset, oy+offset, ox+w+offset, oy-h-offset
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), cv2.FILLED)
+            cv2.putText(frame, text, (ox, oy), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+        frame = cv2.resize(frame, (0,0), None, fx=0.6, fy=0.6, interpolation=cv2.INTER_AREA)
+        cv2.imshow("Video", frame)
+        if cv2.waitKey(1) & 0xFF==ord('1'):
+            break
+    else:
+        break
+
+'''
+
+#----------------------------------------------------------------------------
+'''
+Internal Videos
+V1 :    10s --> 100F 10fps, 30fps
+        1s : 10 frames out of 30   [F1_1, F1_2, ... F1_30] -> 3OC10
+        Examples -  E0 : 100 F -> Pushup        {Train}
+                    E1 : 100 F -> Pushup        {Train}
+                    E2 : 100 F -> Pushup        {Test} [Internal Test]
+
+V2 :
+
+External Videos -
+'''
+#----------------------------------------------------------------------------

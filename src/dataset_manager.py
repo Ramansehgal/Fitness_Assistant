@@ -28,8 +28,9 @@ class VideoDataset:
         dataset_y = []
 
         for video_path, label in videos_and_labels:
+            print(f"Processing Input Video: {video_path}")
             frame_features = self.feature_extractor.extract_frame_features(video_path)
-            print(video_path, "raw frame_features:", frame_features.shape)
+            print("Raw frame_features: ", frame_features.shape)
 
             X_video, y_video = self.sequence_builder.build_sequences(
                 frame_features=frame_features,
@@ -38,6 +39,7 @@ class VideoDataset:
 
             dataset_X.extend(X_video)
             dataset_y.extend(y_video)
+            print("-"*55)
 
         if dataset_X:
             self.X = np.array(dataset_X, dtype=np.float32)

@@ -121,6 +121,7 @@ class FixedLengthSequenceBuilder:
             y_seqs.append(label)
 
         if self.debug:
-            print(f"[FixedLengthSequenceBuilder] generated {len(X_seqs)} sequences for this video.\n")
+            pass
+        print(f"Generated {len(X_seqs)} sequences for this video with sample {base} per second and 1 extra for first {extra}s.\n")
 
         return X_seqs, y_seqs

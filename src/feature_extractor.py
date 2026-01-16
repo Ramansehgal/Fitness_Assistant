@@ -75,6 +75,7 @@ class PoseFeatureExtractor:
         if orig_fps <= 0:
             orig_fps = 30.0
 
+        print("Video FPS reported by OpenCV:", orig_fps)
         step = max(1, int(round(orig_fps / self.sample_fps)))
 
         frame_features = []
