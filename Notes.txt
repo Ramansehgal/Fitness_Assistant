@@ -235,3 +235,95 @@ branch 'main' set up to track 'origin/main'.
 Everything up-to-date
 
 raman@Raman MINGW64 ~/OneDrive/Desktop/Code/Bits Pilani/Semester_4/Dissertation/Smart_Fitness_Assistant (main)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"" Git Notes after submitting commit post Dissertation Completion ""
+##########################################################################################################
+
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git status                      
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (use "git restore <file>..." to discard changes in working directory)
+  (use "git restore <file>..." to discard changes in working directory)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   .gitignore
+        modified:   src/Video_Controller.py
+        modified:   src/feature_extractor.py
+        modified:   src/video_segmentation.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        src/Exercise_Feedback_Pipeline.py
+        src/Knowledge_Ingestor.py
+        src/Knowledge_Retriever.py
+        src/LLM_Feedback.py
+        src/Output.txt
+        src/motion_analyzer.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git add . 
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        modified:   .gitignore
+        new file:   src/Exercise_Feedback_Pipeline.py
+        new file:   src/Knowledge_Ingestor.py
+        new file:   src/Knowledge_Retriever.py
+        new file:   src/LLM_Feedback.py
+        new file:   src/Output.txt
+        modified:   src/Video_Controller.py
+        modified:   src/feature_extractor.py
+        new file:   src/motion_analyzer.py
+        modified:   src/video_segmentation.py
+
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git commit -m "Feedback Pipeline and Motion Analyzer"
+[main cf51b3f] Feedback Pipeline and Motion Analyzer
+ 10 files changed, 2869 insertions(+), 19 deletions(-)
+ create mode 100644 src/Exercise_Feedback_Pipeline.py
+ create mode 100644 src/Knowledge_Ingestor.py
+ create mode 100644 src/Knowledge_Retriever.py
+ create mode 100644 src/LLM_Feedback.py
+ create mode 100644 src/Output.txt
+ create mode 100644 src/motion_analyzer.py
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git status
+On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> git push -u origin main
+Enumerating objects: 19, done.
+Counting objects: 100% (19/19), done.
+Delta compression using up to 20 threads
+Compressing objects: 100% (13/13), done.
+Writing objects: 100% (13/13), 33.58 KiB | 5.60 MiB/s, done.
+Total 13 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/Ramansehgal/Fitness_Assistant.git
+   fca971a..cf51b3f  main -> main
+branch 'main' set up to track 'origin/main'.
+PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> 
+
+
