@@ -1,4 +1,6 @@
 .env
+checkpoints
+data
 FitEnv
 __pycache__/
 Abstract_Details.pdf

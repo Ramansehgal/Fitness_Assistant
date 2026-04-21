@@ -87,6 +87,132 @@ def collapse_time_segments(per_sec_label, label_names, min_duration=2):
 
     return segments
 
+def build_per_second_labels2(window_preds, video_duration_s):
+    sec_scores = {sec: {} for sec in range(int(video_duration_s) + 1)}
+
+    for w in window_preds:
+        s0 = int(np.floor(w["start_time"]))
+        s1 = int(np.ceil(w["end_time"]))
+        for sec in range(s0, s1):
+            sec_scores[sec].setdefault(w["class_idx"], 0.0)
+            sec_scores[sec][w["class_idx"]] += w["proba"]
+
+    per_sec_label = {}
+    per_sec_conf = {}
+
+    for sec, scores in sec_scores.items():
+        if not scores:
+            continue
+        best_class = max(scores, key=scores.get)
+        total = sum(scores.values())
+        per_sec_label[sec] = best_class
+        per_sec_conf[sec] = scores[best_class] / max(total, 1e-6)
+
+    return per_sec_label, per_sec_conf
+
+def build_per_second_labels3(window_preds, video_duration_s):
+    sec_scores = {sec: {} for sec in range(int(video_duration_s) + 1)}
+
+    for w in window_preds:
+        center = 0.5 * (w["start_time"] + w["end_time"])
+        sec = int(round(center))
+
+        if sec < 0 or sec > video_duration_s:
+            continue
+
+        cls = w["class_idx"]
+        sec_scores[sec][cls] = sec_scores[sec].get(cls, 0.0) + w["proba"]
+
+    per_sec_label = {}
+    per_sec_conf = {}
+
+    for sec, scores in sec_scores.items():
+        if not scores:
+            continue
+        best = max(scores, key=scores.get)
+        total = sum(scores.values())
+        per_sec_label[sec] = best
+        per_sec_conf[sec] = scores[best] / max(total, 1e-6)
+
+    return per_sec_label, per_sec_conf
+
+def snap_segments(segments, per_sec_conf, min_conf=0.7):
+    snapped = []
+    for seg in segments:
+        s = seg["start_time"]
+        e = seg["end_time"]
+
+        while s in per_sec_conf and per_sec_conf[s] < min_conf:
+            s += 1
+        while e in per_sec_conf and per_sec_conf[e-1] < min_conf:
+            e -= 1
+
+        if e - s >= 2:
+            seg["start_time"] = s
+            seg["end_time"] = e
+            snapped.append(seg)
+    return snapped
+
+def smooth_labels(per_sec_label, min_stable=2):
+    secs = sorted(per_sec_label.keys())
+    smoothed = {}
+
+    buffer = []
+    prev = None
+
+    for s in secs:
+        c = per_sec_label[s]
+        buffer.append(c)
+        if len(buffer) > min_stable:
+            buffer.pop(0)
+
+        if len(buffer) == min_stable and all(x == c for x in buffer):
+            prev = c
+
+        if prev is not None:
+            smoothed[s] = prev
+
+    return smoothed
+
+def collapse_time_segments2(per_sec_label, label_names, min_duration=2):
+    segments = []
+    secs = sorted(per_sec_label.keys())
+    if not secs:
+        return segments
+
+    cur_class = per_sec_label[secs[0]]
+    start = secs[0]
+
+    for s in secs[1:]:
+        if per_sec_label[s] != cur_class:
+            if s - start >= min_duration:
+                segments.append({
+                    "start_time": start,
+                    "end_time": s,
+                    "class_idx": cur_class,
+                    "class_name": label_names[cur_class]
+                })
+            cur_class = per_sec_label[s]
+            start = s
+
+    segments.append({
+        "start_time": start,
+        "end_time": secs[-1] + 1,
+        "class_idx": cur_class,
+        "class_name": label_names[cur_class]
+    })
+
+    return segments
+
+def extend_first_segment_to_zero(segments):
+    if not segments:
+        return segments
+
+    first = segments[0]
+    if first["start_time"] > 0:
+        first["start_time"] = 0.0
+
+    return segments
 
 def segment_video_exercises(
     video_path,
@@ -260,18 +386,35 @@ def segment_video_exercises(
             f"  | mean_proba={seg['mean_proba']:.3f}"
         )
 
-    per_sec_label, per_sec_conf = build_per_second_labels(window_preds, sample_fps, video_duration_s)
-    non_overlaping_segments = collapse_time_segments(per_sec_label, label_names, min_duration=2)
+    # per_sec_label, per_sec_conf = build_per_second_labels(window_preds, sample_fps, video_duration_s)
+    # non_overlaping_segments = collapse_time_segments(per_sec_label, label_names, min_duration=2)
+    video_duration_s = int(len(frame_features) / sample_fps)
 
+    per_sec_label, per_sec_conf = build_per_second_labels3(window_preds, video_duration_s)
+    per_sec_label = {s: c for s, c in per_sec_label.items() if per_sec_conf.get(s, 0) >= 0.6}
+    per_sec_label = smooth_labels(per_sec_label, min_stable=2)
+    non_overlaping_segments = collapse_time_segments2(per_sec_label, label_names, min_duration=2)
+
+    '''
+    non_overlaping_segments = snap_segments(non_overlaping_segments, per_sec_conf)
     # 6) print non overlapping textual summary
-    print(f"\n[segment_video_exercises] Segmentation for {video_path}:")
+    print(f"\n[segment_video_exercises] B Non Overlaping Segmentats for {video_path}:")
     for seg in non_overlaping_segments:
         print(
             f"  {seg['start_time']:6.2f}s → {seg['end_time']:6.2f}s"
             f"  | class={seg['class_idx']:2d} ({seg['class_name']:15})"
         )
-        
-    return segments, window_preds
+    '''
+    non_overlaping_segments = extend_first_segment_to_zero(non_overlaping_segments)
+    # 6) print non overlapping textual summary
+    print(f"\n[segment_video_exercises] Non Overlaping Segmentats for {video_path}:")
+    for seg in non_overlaping_segments:
+        print(
+            f"  {seg['start_time']:6.2f}s → {seg['end_time']:6.2f}s"
+            f"  | class={seg['class_idx']:2d} ({seg['class_name']:15})"
+        )
+
+    return non_overlaping_segments, window_preds
 
 def segment_and_plot_timeline(
     video_path,

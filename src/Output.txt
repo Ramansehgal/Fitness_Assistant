@@ -1,0 +1,724 @@
+(FitEnv) PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> python .\src\Video_Controller.py
+2026-02-09 02:02:48.046599: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-02-09 02:02:49.388931: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+------------------------------------------------------------------------------------------
+1) Video Dataset and Label Info:
+------------------------------------------------------------------------------------------
+2) Create components
+------------------------------------------------------------------------------------------
+3) Build dataset
+Processing Input Video: data/videos/bicep.mp4
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Video FPS reported by OpenCV: 29.97002997002997
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1770582774.040484    7684 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770582774.080634    7684 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770582774.117204   47048 landmark_projection_calculator.cc:186] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE_DIMENSIONS or use PROJECTION_MATRIX.
+Raw frame_features:  (260, 217)
+Generated 100 sequences for this video with sample 3 per second and 1 extra for first 22s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/bicep_curl_4.mp4
+Video FPS reported by OpenCV: 25.0
+Raw frame_features:  (149, 217)
+Generated 100 sequences for this video with sample 7 per second and 1 extra for first 2s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pushup.mp4
+Video FPS reported by OpenCV: 25.0
+Raw frame_features:  (241, 217)
+Generated 100 sequences for this video with sample 4 per second and 1 extra for first 4s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pushup3.mp4
+Video FPS reported by OpenCV: 25.0
+Raw frame_features:  (154, 217)
+Generated 100 sequences for this video with sample 6 per second and 1 extra for first 10s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pushup6.mp4
+Video FPS reported by OpenCV: 25.0
+Raw frame_features:  (103, 217)
+Generated 100 sequences for this video with sample 10 per second and 1 extra for first 0s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pullup.mp4
+Video FPS reported by OpenCV: 29.97002997002997
+Raw frame_features:  (107, 217)
+Generated 100 sequences for this video with sample 10 per second and 1 extra for first 0s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pullup2.mp4
+Video FPS reported by OpenCV: 24.0
+Raw frame_features:  (145, 217)
+Generated 100 sequences for this video with sample 7 per second and 1 extra for first 2s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/pullup5.mp4
+Video FPS reported by OpenCV: 25.0
+Raw frame_features:  (68, 217)
+Generated 100 sequences for this video with sample 16 per second and 1 extra for first 4s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/squat.mp4
+Video FPS reported by OpenCV: 30.0
+Raw frame_features:  (69, 217)
+Generated 100 sequences for this video with sample 16 per second and 1 extra for first 4s.
+
+-------------------------------------------------------
+Processing Input Video: data/videos/squat6.mp4
+Video FPS reported by OpenCV: 60.0
+Raw frame_features:  (113, 217)
+Generated 100 sequences for this video with sample 9 per second and 1 extra for first 1s.
+
+-------------------------------------------------------
+Final X shape: (1000, 100, 217) y shape: (1000,)
+=============================================
+Training Dataset Shape
+X shape : (1000, 100, 217)
+y shape : (1000,)
+=============================================
+------------------------------------------------------------------------------------------
+4) Create and train LSTM model
+2026-02-09 02:03:47.882191: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.        
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                  ┃ Output Shape              ┃         Param # ┃ Connected to               ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ input_layer (InputLayer)      │ (None, 100, 217)          │               0 │ -                          │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ not_equal (NotEqual)          │ (None, 100, 217)          │               0 │ input_layer[0][0]          │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ masking (Masking)             │ (None, 100, 217)          │               0 │ input_layer[0][0]          │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ any (Any)                     │ (None, 100)               │               0 │ not_equal[0][0]            │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ lstm (LSTM)                   │ (None, 128)               │         177,152 │ masking[0][0], any[0][0]   │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ dropout (Dropout)             │ (None, 128)               │               0 │ lstm[0][0]                 │
+├───────────────────────────────┼───────────────────────────┼─────────────────┼────────────────────────────┤
+│ dense (Dense)                 │ (None, 4)                 │             516 │ dropout[0][0]              │
+└───────────────────────────────┴───────────────────────────┴─────────────────┴────────────────────────────┘
+ Total params: 177,668 (694.02 KB)
+ Trainable params: 177,668 (694.02 KB)
+ Non-trainable params: 0 (0.00 B)
+None
+[MODEL SAVE] Best LSTM model saved at: checkpoints\best_lstm4.keras
+------------------------------------------------------------------------------------------
+5) Train + get test split
+------------------------------------------------------------------------------------
+                                         Train Test Val Split
+------------------------------------------------------------------------------------
+N=1000, Train Size=600, Val Size=250, Test Size=150
+------------------------------------------------------------------------------------
+2026-02-09 02:03:49.840112: E tensorflow/core/util/util.cc:131] oneDNN supports DT_BOOL only on platforms with AVX-512. Falling back to the default Eigen-based implementation if present.
+Epoch 1 Completed
+Epoch 5 Completed
+Epoch 10 Completed
+Epoch 15 Completed
+Epoch 20 Completed
+Epoch 25 Completed
+Epoch 30 Completed
+Train loss=0.0001, accuracy=1.0000
+Test metrics: {'test_loss': 6.346696318360046e-05, 'test_accuracy': 1.0, 'X_train_shape': (600, 100, 217), 'X_val_shape': (250, 100, 217), 'X_test_shape': (150, 100, 217)}
+------------------------------------------------------------------------------------------
+6) Plot training curves
+------------------------------------------------------------------------------------------
+7) Training & Validation Metrices
+Confusion Matrix (rows=true, cols=pred):
+[[33  0  0  0]
+ [ 0 37  0  0]
+ [ 0  0 45  0]
+ [ 0  0  0 35]]
+
+Classification Report:
+              precision    recall  f1-score   support
+
+  bicep_curl       1.00      1.00      1.00        33
+      pushup       1.00      1.00      1.00        37
+      pullup       1.00      1.00      1.00        45
+      squats       1.00      1.00      1.00        35
+
+    accuracy                           1.00       150
+   macro avg       1.00      1.00      1.00       150
+weighted avg       1.00      1.00      1.00       150
+
+
+Sample predictions per class:
+Loop ID -0
+
+Class 0 (bicep_curl) - showing 5 samples:
+  sample idx=   4, true=0 (bicep_curl), pred=0 (bicep_curl), proba=0.9999
+  sample idx=   8, true=0 (bicep_curl), pred=0 (bicep_curl), proba=0.9999
+  sample idx=  18, true=0 (bicep_curl), pred=0 (bicep_curl), proba=0.9999
+  sample idx=  19, true=0 (bicep_curl), pred=0 (bicep_curl), proba=0.9999
+  sample idx=  22, true=0 (bicep_curl), pred=0 (bicep_curl), proba=0.9999
+Loop ID -22
+
+Class 1 (pushup) - showing 5 samples:
+  sample idx=   7, true=1 (pushup), pred=1 (pushup), proba=1.0000
+  sample idx=  14, true=1 (pushup), pred=1 (pushup), proba=1.0000
+  sample idx=  16, true=1 (pushup), pred=1 (pushup), proba=0.9999
+  sample idx=  17, true=1 (pushup), pred=1 (pushup), proba=1.0000
+  sample idx=  21, true=1 (pushup), pred=1 (pushup), proba=0.9999
+Loop ID -21
+
+Class 2 (pullup) - showing 5 samples:
+  sample idx=   5, true=2 (pullup), pred=2 (pullup), proba=0.9999
+  sample idx=  10, true=2 (pullup), pred=2 (pullup), proba=0.9999
+  sample idx=  12, true=2 (pullup), pred=2 (pullup), proba=1.0000
+  sample idx=  15, true=2 (pullup), pred=2 (pullup), proba=1.0000
+  sample idx=  23, true=2 (pullup), pred=2 (pullup), proba=0.9999
+Loop ID -23
+
+Class 3 (squats) - showing 5 samples:
+  sample idx=   0, true=3 (squats), pred=3 (squats), proba=0.9999
+  sample idx=   1, true=3 (squats), pred=3 (squats), proba=0.9999
+  sample idx=   2, true=3 (squats), pred=3 (squats), proba=0.9999
+  sample idx=   3, true=3 (squats), pred=3 (squats), proba=0.9999
+  sample idx=   6, true=3 (squats), pred=3 (squats), proba=0.9999
+------------------------------------------------------------------------------------------
+8) Plot confusion matrix
+------------------------------------------------------------------------------------------
+9) Initalize LLM For getting personalized feedback
+------------------------------------------------------------------------------------------
+10) Testing on Untrained Videos
+Printing Angle Triplets
+angle_00 : 16 - 14 - 12
+angle_01 : 24 - 23 - 25
+angle_02 : 24 - 23 - 11
+angle_03 : 25 - 23 - 11
+angle_04 : 27 - 25 - 23
+angle_05 : 32 - 28 - 26
+angle_06 : 32 - 28 - 30
+angle_07 : 26 - 28 - 30
+angle_08 : 32 - 30 - 28
+angle_09 : 12 - 11 - 13
+angle_10 : 12 - 11 - 23
+angle_11 : 13 - 11 - 23
+angle_12 : 25 - 27 - 29
+angle_13 : 25 - 27 - 31
+angle_14 : 29 - 27 - 31
+angle_15 : 27 - 31 - 29
+angle_16 : 26 - 24 - 12
+angle_17 : 26 - 24 - 23
+angle_18 : 12 - 24 - 23
+angle_19 : 24 - 26 - 28
+angle_20 : 27 - 29 - 31
+angle_21 : 24 - 12 - 11
+angle_22 : 24 - 12 - 14
+angle_23 : 11 - 12 - 14
+angle_24 : 11 - 13 - 15
+angle_25 : 28 - 32 - 30
+Video FPS reported by OpenCV: 25.0
+[build_sequences_for_video] data/videos/squat2.mp4: raw frame_features=(350, 217)
+Generated 100 sequences for this video with sample 2 per second and 1 extra for first 30s.
+
+Video is getting tested on - data/videos/squat2.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 13 Predicted:  3 (squats    ), Proba=0.765 Ground Truth:  3 (squats    )
+ [Test Number -  1] Test ID: 54 Predicted:  3 (squats    ), Proba=0.764 Ground Truth:  3 (squats    )
+ [Test Number -  2] Test ID: 23 Predicted:  3 (squats    ), Proba=0.650 Ground Truth:  3 (squats    )
+ [Test Number -  3] Test ID: 79 Predicted:  3 (squats    ), Proba=0.671 Ground Truth:  3 (squats    )
+ [Test Number -  4] Test ID: 70 Predicted:  3 (squats    ), Proba=0.857 Ground Truth:  3 (squats    )
+ [Test Number -  5] Test ID: 96 Predicted:  3 (squats    ), Proba=0.840 Ground Truth:  3 (squats    )
+ [Test Number -  6] Test ID: 86 Predicted:  3 (squats    ), Proba=0.807 Ground Truth:  3 (squats    )
+ [Test Number -  7] Test ID: 78 Predicted:  3 (squats    ), Proba=0.821 Ground Truth:  3 (squats    )
+ [Test Number -  8] Test ID: 82 Predicted:  3 (squats    ), Proba=0.862 Ground Truth:  3 (squats    )
+ [Test Number -  9] Test ID: 77 Predicted:  3 (squats    ), Proba=0.842 Ground Truth:  3 (squats    )
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 25.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 25.0
+W0000 00:00:1770582916.182853   26532 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770582916.224237   26532 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+### 1. Safe Angle Limits for Impacted Joints:
+- **Angle_19 (Hip Flexion)**: Safe range approximately 30-120 degrees for optimal squat biomechanics.
+- **Angle_04 (Knee Flexion)**: Safe range approximately 0-120 degrees to avoid excessive stress on knees.
+
+### 2. Exercise Quality Rating:
+| Parameter         | Rating |
+|-------------------|--------|
+| Form              | 75     |
+| Range of Motion   | 70     |
+| Stability         | 60     |
+| Alignment         | 80     |
+| Overall Score     | 71.25  |
+
+### 3. Injury Prevention Recommendations:
+**Single Video (Squat2.mp4)**:
+1. Cue proper knee tracking to protect against valgus stress.
+2. Encourage maintaining a neutral spine for optimal hip alignment.
+3. Emphasize controlled lowering phase to prevent rapid loading on knees.
+4. Ensure adequate warm-up and flexibility to prepare joints for the exercise.
+
+**Multi Case Recommendations**:
+1. Individualize depth of squat based on participant mobility.
+2. Implement progressive overload to gradually increase intensity.
+3. Include unilateral leg exercises to address muscle imbalances.
+4. Monitor for signs of fatigue or compensatory movements in multiple rounds.
+
+### 4. Overall Exercise Health:
+Safe with proper technique and guidance. Regular form checks and progression monitoring recommended.
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 25.0
+[build_sequences_for_video] data/videos/pushup7.mp4: raw frame_features=(112, 217)
+Generated 100 sequences for this video with sample 9 per second and 1 extra for first 1s.
+
+Video is getting tested on - data/videos/pushup7.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 73 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  1] Test ID: 18 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  2] Test ID: 25 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  3] Test ID: 53 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  4] Test ID: 31 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  5] Test ID: 97 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  6] Test ID: 78 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  7] Test ID: 67 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  8] Test ID: 55 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  9] Test ID: 43 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 25.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 25.0
+W0000 00:00:1770582952.192934   41472 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770582952.233931   41472 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+1. Based on the given data, the safe angle limits for impacted joints in the exercise can be determined using biomechanical principles. You can set safe angle ranges by considering the mean values and standard deviations of the joint angles. For example, joint 'angle_24' with a mean of 120.19 and a standard deviation of 48.87 could have a safe range around 70-170 degrees.
+
+2. Quality parameters for exercise rating could include Alignment (80), Stability (85), Range of Motion (70), and Muscle Activation (90). You can calculate an overall score by averaging these parameters.
+
+3. Injury prevention recommendations could include joint-specific mobility drills, form correction cues, gradual progression in intensity, and adequate rest between sets.
+
+4. Overall exercise health assessment: Slightly aggressive due to wide joint angle variability and potential for misalignment.
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 60.0
+[build_sequences_for_video] data/videos/bicep_curl5.mp4: raw frame_features=(150, 217)
+Generated 100 sequences for this video with sample 6 per second and 1 extra for first 10s.
+
+Video is getting tested on - data/videos/bicep_curl5.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 48 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  1] Test ID: 77 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  2] Test ID: 95 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  3] Test ID: 96 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  4] Test ID: 82 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  5] Test ID: 17 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  6] Test ID: 63 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  7] Test ID: 49 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  8] Test ID: 42 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  9] Test ID: 33 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 60.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 60.0
+W0000 00:00:1770582974.826165   12416 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770582974.867133   12416 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+**1. Safe Angle Limits for Impacted Joints:**
+- For joint "angle_00" (potentially elbow joint), safe limits are approximately 12° to 161° based on the provided statistics.
+
+**2. Exercise Quality Rating Table:**
+- Parameter 1: Range of Motion (ROM) - 85
+- Parameter 2: Stability - 75
+- Parameter 3: Joint Alignment - 70
+- Parameter 4: Muscle Activation - 80
+- Overall Score: 77.5
+
+**3. Injury-Prevention Recommendations:**
+- Ensure proper warm-up before exercise.
+- Focus on maintaining proper joint alignment throughout the movement.
+- Gradually increase intensity to avoid sudden stress on muscles and joints.
+- Incorporate stretching and cool-down exercises post-workout.
+
+**4. Overall Exercise Health:**
+- The exercise seems safe with proper form and monitoring.
+
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 25.0
+[build_sequences_for_video] data/videos/bicep_curl_4.mp4: raw frame_features=(150, 217)
+Generated 100 sequences for this video with sample 6 per second and 1 extra for first 10s.
+
+Video is getting tested on - data/videos/bicep_curl_4.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 57 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  1] Test ID: 97 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  2] Test ID: 80 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  3] Test ID: 53 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  4] Test ID: 39 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  5] Test ID: 86 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  6] Test ID: 20 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  7] Test ID: 58 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  8] Test ID: 18 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+ [Test Number -  9] Test ID: 50 Predicted:  0 (bicep_curl), Proba=1.000 Ground Truth:  0 (bicep_curl)
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 25.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 25.0
+W0000 00:00:1770583021.617903   27040 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770583021.660118   27040 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+1. Safe angle limits for the impacted joints:
+- Angle_24 (shoulder joint) safe range: 72.75° to 157.68°
+- Angle_00 (elbow joint) safe range: 63.33° to 161.14°
+
+2. Exercise quality rating:
+- Alignment: 80/100
+- Range of motion: 75/100
+- Stability: 70/100
+- Control: 85/100
+- Overall Score: 77.5/100
+
+3. Injury prevention recommendations:
+- Shoulder: Avoid excessive external rotation beyond safe limits.
+- Elbow: Ensure smooth, controlled movement to prevent hyperextension.
+- General: Maintain proper alignment and form throughout the exercise.
+- Stability: Engage core muscles to support the upper body during the movement.
+
+4. Overall exercise health: Slightly aggressive due to potential risks of overextension at the shoulder and elbow joints. Ensure strict adherence to safe angles and form for injury prevention.
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 23.976023976023978
+[build_sequences_for_video] data/videos/pullup7.mp4: raw frame_features=(133, 217)
+Generated 100 sequences for this video with sample 7 per second and 1 extra for first 9s.
+
+Video is getting tested on - data/videos/pullup7.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 62 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  1] Test ID: 22 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  2] Test ID: 95 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  3] Test ID: 16 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  4] Test ID: 84 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  5] Test ID: 14 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  6] Test ID: 71 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  7] Test ID: 10 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  8] Test ID:  0 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+ [Test Number -  9] Test ID: 59 Predicted:  2 (pullup    ), Proba=1.000 Ground Truth:  2 (pullup    )
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 23.976023976023978
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 23.976023976023978
+W0000 00:00:1770583044.726644   38076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770583044.768593   38076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+1. Safe angle limits for the impacted joint (angle_24) may range between 10-170 degrees, based on typical safe ranges for shoulder extension during pull-up exercises.
+
+2. Table rating exercise quality:
+   - Range of Motion: 80
+   - Stability: 70
+   - Alignment: 60
+   - Control: 75
+   - Overall Score: 71.25
+
+3. Injury-prevention recommendations:
+   - Ensure proper scapular retraction (t_min at 9.1, bone_24).
+   - Avoid excessive shoulder internal rotation (t_max at 3.4, angle_24).
+   - Maintain core stability to support the lumbar spine (bone_21).
+   - Engage posterior chain muscles to support shoulder movement (bone_00).
+
+4. Overall exercise health: Slightly Aggressive due to potential stress on joints and lack of optimal alignment in some segments.
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 25.0
+[build_sequences_for_video] data/videos/squat3.mp4: raw frame_features=(132, 217)
+Generated 100 sequences for this video with sample 7 per second and 1 extra for first 9s.
+
+Video is getting tested on - data/videos/squat3.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID:  1 Predicted:  3 (squats    ), Proba=0.601 Ground Truth:  3 (squats    )
+ [Test Number -  1] Test ID: 63 Predicted:  3 (squats    ), Proba=0.581 Ground Truth:  3 (squats    )
+ [Test Number -  2] Test ID: 94 Predicted:  3 (squats    ), Proba=0.551 Ground Truth:  3 (squats    )
+ [Test Number -  3] Test ID: 63 Predicted:  3 (squats    ), Proba=0.581 Ground Truth:  3 (squats    )
+ [Test Number -  4] Test ID:  6 Predicted:  3 (squats    ), Proba=0.537 Ground Truth:  3 (squats    )
+ [Test Number -  5] Test ID:  6 Predicted:  3 (squats    ), Proba=0.537 Ground Truth:  3 (squats    )
+ [Test Number -  6] Test ID: 56 Predicted:  3 (squats    ), Proba=0.531 Ground Truth:  3 (squats    )
+ [Test Number -  7] Test ID: 96 Predicted:  3 (squats    ), Proba=0.551 Ground Truth:  3 (squats    )
+ [Test Number -  8] Test ID: 11 Predicted:  3 (squats    ), Proba=0.571 Ground Truth:  3 (squats    )
+ [Test Number -  9] Test ID: 32 Predicted:  3 (squats    ), Proba=0.538 Ground Truth:  3 (squats    )
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 25.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 25.0
+W0000 00:00:1770583066.565274   41324 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770583066.616794   39812 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+1. SAFE angle limits for impacted joints:
+- For angle_19 (mean: 160.73), safe range could be 140-170 degrees.
+- For angle_04 (mean: 153.24), safe range could be 130-160 degrees.
+
+2. Exercise quality ratings:
+- Stability: 85
+- Range of Motion: 70
+- Symmetry: 60
+- Control: 75
+Overall Score: 72.5
+
+3. Injury prevention recommendations:
+- Ensure proper warm-up and cool-down routines.
+- Focus on core strength and hip mobility.
+- Correct any asymmetries and imbalances.
+- Gradually progress intensity and volume over time.
+
+4. Assessing exercise health: Slightly aggressive due to deviations in joints angles and potential asymmetries.
+------------------------------------ Analysis Completed -------------------------------------
+Video FPS reported by OpenCV: 25.0
+[build_sequences_for_video] data/videos/pushup3.mp4: raw frame_features=(154, 217)
+Generated 100 sequences for this video with sample 6 per second and 1 extra for first 10s.
+
+Video is getting tested on - data/videos/pushup3.mp4
+100 (100, 217)
+ [Test Number -  0] Test ID: 12 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  1] Test ID: 54 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  2] Test ID: 37 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  3] Test ID: 29 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  4] Test ID:  0 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  5] Test ID: 84 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  6] Test ID: 46 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  7] Test ID: 90 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  8] Test ID: 32 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+ [Test Number -  9] Test ID: 92 Predicted:  1 (pushup    ), Proba=1.000 Ground Truth:  1 (pushup    )
+Total Test Sequences:10 Correct:10 Incorrect:0
+
+Test Report:
+  Correct classification: 10
+  Test Accuracy on Sample Data: 100.0%
+Video FPS reported by OpenCV: 25.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 25.0
+W0000 00:00:1770583091.294066   43672 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770583091.326286   43672 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+1. SAFE angle limits for impacted joints:
+   - Angle_00 (Elbow Flexion/Extension): Average 125.9°, Safe Range 0-180°
+   - Angle_24 (Shoulder Flexion/Extension): Average 121.63°, Safe Range 0-180°
+
+2. Exercise Quality Rating Table:
+   - Joint Alignment: 85/100
+   - Range of Motion: 75/100
+   - Stability: 65/100
+   - Control: 70/100
+   - Overall Score: 73/100
+
+3. Injury-Prevention Recommendations:
+   Single Case:
+   a. Ensure proper warm-up and cooldown routines.
+   b. Focus on maintaining core stability throughout the exercise.
+   c. Monitor and correct any compensatory movements during the exercise.
+   d. Gradually progress intensity and volume to avoid overloading joints.
+
+4. Overall Exercise Health: Safe. The exercise demonstrates moderate joint alignment and range of motion with stability and control. Continual monitoring for form and progression is recommended.
+------------------------------------ Analysis Completed -------------------------------------
+Each classes correct predition count   : [20, 20, 10, 20]
+Each classes incorrect predition count : [0, 0, 0, 0]
+Each classes prediction accuracy       : [100.0, 100.0, 100.0, 100.0]
+Total Correct Prediction               : 70
+Total Test Sequences                   : 70
+Overall Model Accuracy                 : 100.0%
+------------------------------------------------------------------------------------------
+11) Testing Videos Segmentaion and Boundary detection
+<LSTM.LSTMTrainer object at 0x0000025155A56910>
+Video FPS reported by OpenCV: 30.0
+[segment_video_exercises] data/videos/push_up_squat.mp4: T=407, D=217, sample_fps=10 video duration  =41.400000000000006s
+[DEBUG] Window predictions:
+  win 00 |  0.00s →  6.00s | class=1 (pushup), proba=0.914
+  win 01 |  1.00s →  7.00s | class=1 (pushup), proba=0.920
+  win 02 |  2.00s →  8.00s | class=1 (pushup), proba=0.933
+  win 03 |  3.00s →  9.00s | class=1 (pushup), proba=0.846
+  win 04 |  4.00s → 10.00s | class=1 (pushup), proba=0.804
+  win 05 |  5.00s → 11.00s | class=1 (pushup), proba=0.890
+  win 06 |  6.00s → 12.00s | class=1 (pushup), proba=0.841
+  win 07 |  7.00s → 13.00s | class=3 (squats), proba=0.517
+  win 08 |  8.00s → 14.00s | class=1 (pushup), proba=0.874
+  win 09 |  9.00s → 15.00s | class=1 (pushup), proba=0.824
+  win 10 | 10.00s → 16.00s | class=3 (squats), proba=0.942
+  win 11 | 11.00s → 17.00s | class=3 (squats), proba=0.991
+  win 12 | 12.00s → 18.00s | class=3 (squats), proba=0.999
+  win 13 | 13.00s → 19.00s | class=3 (squats), proba=1.000
+  win 14 | 14.00s → 20.00s | class=3 (squats), proba=1.000
+  win 15 | 15.00s → 21.00s | class=3 (squats), proba=1.000
+  win 16 | 16.00s → 22.00s | class=3 (squats), proba=1.000
+  win 17 | 17.00s → 23.00s | class=3 (squats), proba=1.000
+  win 18 | 18.00s → 24.00s | class=3 (squats), proba=1.000
+  win 19 | 19.00s → 25.00s | class=3 (squats), proba=1.000
+  win 20 | 20.00s → 26.00s | class=3 (squats), proba=0.975
+  win 21 | 21.00s → 27.00s | class=3 (squats), proba=0.624
+  win 22 | 22.00s → 28.00s | class=1 (pushup), proba=0.876
+  win 23 | 23.00s → 29.00s | class=1 (pushup), proba=0.843
+  win 24 | 24.00s → 30.00s | class=1 (pushup), proba=0.834
+  win 25 | 25.00s → 31.00s | class=1 (pushup), proba=0.911
+  win 26 | 26.00s → 32.00s | class=1 (pushup), proba=0.933
+  win 27 | 27.00s → 33.00s | class=1 (pushup), proba=0.932
+  win 28 | 28.00s → 34.00s | class=1 (pushup), proba=0.932
+  win 29 | 29.00s → 35.00s | class=1 (pushup), proba=0.936
+  win 30 | 30.00s → 36.00s | class=1 (pushup), proba=0.700
+  win 31 | 31.00s → 37.00s | class=1 (pushup), proba=0.759
+  win 32 | 32.00s → 38.00s | class=1 (pushup), proba=0.772
+  win 33 | 33.00s → 39.00s | class=3 (squats), proba=0.963
+  win 34 | 34.00s → 40.00s | class=3 (squats), proba=0.993
+
+[segment_video_exercises] Segmentation for data/videos/push_up_squat.mp4:
+    0.00s →  12.00s  | class= 1 (pushup         )  | mean_proba=0.878
+    7.00s →  13.00s  | class= 3 (squats         )  | mean_proba=0.517
+    8.00s →  15.00s  | class= 1 (pushup         )  | mean_proba=0.849
+   10.00s →  27.00s  | class= 3 (squats         )  | mean_proba=0.961
+   22.00s →  38.00s  | class= 1 (pushup         )  | mean_proba=0.857
+   33.00s →  40.00s  | class= 3 (squats         )  | mean_proba=0.978
+
+[segment_video_exercises] Non Overlaping Segmentats for data/videos/push_up_squat.mp4:
+    0.00s →  14.00s  | class= 1 (pushup         )
+   14.00s →  26.00s  | class= 3 (squats         )
+   26.00s →  37.00s  | class= 1 (pushup         )
+   37.00s →  38.00s  | class= 3 (squats         )
+Video FPS reported by OpenCV: 30.0
+Displaying Following (video_path): True
+Video FPS reported by OpenCV: 30.0
+W0000 00:00:1770583139.884182   23864 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1770583139.925384   23864 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+[:> 1 -> 3] U: 238 213 B: 9 91 R: 41 20 F: 360 420
+[:> 3 -> 1] U: 641 19 B: 159 9 R: 73 41 F: 750 360
+[:> -1 -> 3] U: 518 169 B: 159 159 R: 43 73 F: 390 750
+
+---------------------------------- Analysis From LLM  -------------------------------------
+
+### Task 1: Determine SAFE angle limits for impacted joints
+
+Based on open-source biomechanical principles, safe angle limits for the impacted joints in the provided exercises can be estimated as follows:
+
+- **Pushup:**
+  - **Impacted Joint - Angle_00 (Elbow):** The safe angle limits for the elbow joint during a pushup exercise are typically between 0-180 degrees. The mean angle of 117.85 degrees with a range of 58.69 to 178.53 degrees falls within these safe limits.
+
+- **Squats:**
+  - **Impacted Joints - Angle_19 (Knee) and Angle_04 (Hip):**
+    - **Knee (Angle_19):** Safe knee angles during squats are typically between 0-120 degrees. The mean angle of 154.78 degrees with a range of 1.39 to 179.77 degrees may indicate slightly aggressive movements.
+    - **Hip (Angle_04):** Safe hip angles during squats are typically between 0-120 degrees. The mean angle of 117.06 degrees with a range of 36.29 to 178.01 degrees falls within the safe limits.
+
+### Task 2: Exercise Quality Rating
+
+| Parameter              | Pushup | Squats |
+|------------------------ |--------|--------|
+| Proper Form             | 90     | 80     |
+| Range of Motion         | 85     | 75     |
+| Joint Alignment         | 80     | 70     |
+| Stability and Control   | 85     | 80     |
+| Overall Score           | 85     | 76.25  |
+
+### Task 3: Injury-Prevention Recommendations
+
+**For Pushup:**
+1. **Proper Form:** Ensure the elbows are tracking over the wrists to prevent excessive strain on the shoulders and wrists.
+2. **Range of Motion:** Gradually increase depth to challenge muscles without compromising joint integrity.
+3. **Joint Alignment:** Engage core muscles to maintain a neutral spine position.
+4. **Stability and Control:** Focus on controlled descent and ascent to build strength effectively.
+
+**For Squats:**
+1. **Proper Form:** Keep the knees aligned with the toes to prevent inward collapsing.
+2. **Range of Motion:** Avoid going beyond a safe depth that compromises knee integrity.
+3. **Joint Alignment:** Maintain a neutral spine and engage core muscles throughout the movement.
+4. **Stability and Control:** Focus on proper weight distribution between heels and toes to promote balance.
+
+### Task 4: Overall Exercise Health
+
+- **Pushup:** Safe
+- **Squats:** Slightly aggressive
+------------------------------------ Analysis Completed -------------------------------------
+(FitEnv) PS C:\Users\raman\OneDrive\Desktop\Code\Bits Pilani\Semester_4\Dissertation\Smart_Fitness_Assistant> 
+
+
+
+
+'''
+feedback tensors.
+[:> 1 -> 3] U: 268 213 B: 9 91 R: 41 20 F: 390 420
+[:> 3 -> 1] U: 624 19 B: 157 9 R: 62 41 F: 690 390
+[:> -1 -> 3] U: 527 167 B: 157 157 R: 49 62 F: 450 690
+
+
+---------------------------------- Analysis From LLM-------------------------------------
+### 1. SAFE Angle Limits for Impacted Joints
+- **Pushup (0-14s)**:
+  - Angle_00 (shoulder): 90° - 180°
+  - Angle_24 (elbow): 0° - 150°
+- **Squats (14-25s)**:
+  - Angle_19 (hip): 90° - 135°
+  - Angle_04 (knee): 90° - 150°
+- **Pushup (25-36s)**:
+  - Angle_00 (shoulder): 90° - 180°
+  - Angle_24 (elbow): 0° - 150°
+- **Squats (36-38s)**:
+  - Angle_19 (hip): 90° - 135°
+  - Angle_04 (knee): 90° - 150°
+
+### 2. Exercise Quality Table
+| Parameter          | Pushup (0-14s) | Squats (14-25s) | Pushup (25-36s) | Squats (36-38s) | Overall Score |
+|--------------------|----------------|------------------|------------------|------------------|----------------|
+| Joint Angles       | 70             | 80               | 65               | 75               | 72.5           |
+| Stability          | 75             | 70               | 70               | 80               | 73.75          |
+| Range of Motion    | 60             | 85               | 65               | 80               | 72.5           |
+| Control            | 65             | 75               | 60               | 70               | 67.5           |
+
+### 3. Injury-Prevention Recommendations
+- **Pushup (0-14s)**:
+  1. Maintain a neutral spine (0s).
+  2. Avoid excessive elbow flexion (3s).
+  3. Engage core throughout (5s).
+  4. Ensure proper hand placement (10s).
+
+- **Squats (14-25s)**:
+  1. Keep knees aligned with toes (15s).
+  2. Maintain a straight back (18s).
+  3. Avoid deep knee flexion (22s).
+  4. Engage glutes during ascent (24s).
+
+- **Pushup (25-36s)**:
+  1. Keep elbows close to body (27s).
+  2. Avoid dropping hips (30s).
+  3. Focus on controlled descent (32s).
+  4. Ensure proper breathing (34s).
+
+- **Squats (36-38s)**:
+  1. Maintain weight on heels (36s).
+  2. Avoid rounding the back (37s).
+  3. Keep chest lifted (37s).
+  4. Control descent speed (38s).
+
+### 4. Overall Exercise Health Assessment
+**Slightly aggressive** - While the exercises show good engagement, there are moments of potential risk due to joint angles and stability.
+'''
